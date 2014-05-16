@@ -14,7 +14,7 @@ class RobotReader{
     public:
         //TRBuffer< map<std::String,bool> > m_RobotRingBuffer;
         std::map<std::string, float> m_LastConfig;
-        uint64_t m_LastTime = 0;
+        uint64_t m_LastTime;
 
         RobotReader(ros::NodeHandle& node);
 
@@ -24,5 +24,6 @@ class RobotReader{
         tf::TransformListener m_Listener;
 
         void getPr2Location(tf::TransformListener& listener);
+        void getPr2Joints(tf::TransformListener& listener);
         void pr2JointStateCallBack(const sensor_msgs::JointState::ConstPtr& msg);
 };

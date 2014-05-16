@@ -40,7 +40,6 @@ void RobotReader::getPr2Location(tf::TransformListener& listener){
         ROS_ERROR("%s",ex.what());
     }
 }
-
 void RobotReader::pr2JointStateCallBack(const sensor_msgs::JointState::ConstPtr& msg){
 
   //First, get the base pr2 pose
