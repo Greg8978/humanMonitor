@@ -1,0 +1,17 @@
+<package>
+  <description brief="humanMonitor">
+
+     humanMonitor
+
+  </description>
+  <author>Gregoire MilliezH1100561337832</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/humanMonitor</url>
+  <depend package="tf"/>
+  <depend package="std_msgs"/>
+  <depend package="roscpp"/>
+
+</package>
+
+
