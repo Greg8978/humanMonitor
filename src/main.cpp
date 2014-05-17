@@ -136,33 +136,38 @@ int main(int argc, char** argv){
 
   HumanReader humanRd(node);
   RobotReader robotRd(node);
-  
-   humanMonitor::niut_JOINT_STR testJoint;
-   testJoint.position.x = 2.8;
-   testJoint.position.y = 3.2;
-   testJoint.position.z = 4.0;
-   float testTranspos[3], kinectPos[6];
-   kinectPos[0] = 7.25;
-   kinectPos[1] = 6.55;
-   kinectPos[2] = 2.2;
-   kinectPos[3] = 0;
-   kinectPos[4] = 0.84;
-   kinectPos[5] = -1.57;
-   
-   projectJoint(testJoint, kinectPos, testTranspos);
-   
-   std::cout << "Joint transpos : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
-    
-  
+
+  humanMonitor::niut_JOINT_STR testJoint;
+  //testJoint.position.x = 2.8;
+  //testJoint.position.y = 3.2;
+  //testJoint.position.z = 4.0;
+  float testTranspos[3], kinectPos[6];
+  kinectPos[0] = 7.25;
+  kinectPos[1] = 6.55;
+  kinectPos[2] = 2.2;
+  kinectPos[3] = 0;
+  kinectPos[4] = 0.84;
+  kinectPos[5] = -1.57;
+
+
+  while( node.ok() ){
+    testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
+
+    projectJoint(testJoint, kinectPos, testTranspos);
+
+
+    std::cout << "Hand position : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
+  }
+
   //while( node.ok() ){
-   // std::cout << "Last human time received " << humanRd.m_LastTime << std::endl;
-   // std::cout << "number of human received " << humanRd.m_LastConfig.size() << std::endl;
-    
-   
-    
-    
-    //std::cout << "Last robot time received " << robotRd.m_LastTime << std::endl;
-   // std::cout << "number of robot joint received " << robotRd.m_LastConfig.size() << std::endl;
+  // std::cout << "Last human time received " << humanRd.m_LastTime << std::endl;
+  // std::cout << "number of human received " << humanRd.m_LastConfig.size() << std::endl;
+
+
+
+
+   //std::cout << "Last robot time received " << robotRd.m_LastTime << std::endl;
+  // std::cout << "number of robot joint received " << robotRd.m_LastConfig.size() << std::endl;
   //}
 
 }
