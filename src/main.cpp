@@ -3,12 +3,15 @@
 #include "humanMonitor/HumanReader.h"
 #include "humanMonitor/RobotReader.h"
 
+
+
+
 void multiplyMatrices4x4(float* result,float* mat1, float* mat2){
 
-	result[0] = mat1[0]*mat2[0] + mat1[1]*(mat2+1)[0] + mat1[2]*(mat2+2)[0] + mat1[3]*(mat2+3)[0];
-	result[1] = mat1[0]*mat2[1] + mat1[1]*(mat2+1)[1] + mat1[2]*(mat2+2)[1] + mat1[3]*(mat2+3)[1];
-	result[2] = mat1[0]*mat2[2] + mat1[1]*(mat2+1)[2] + mat1[2]*(mat2+2)[2] + mat1[3]*(mat2+3)[2];
-	result[3] = mat1[0]*mat2[3] + mat1[1]*(mat2+1)[3] + mat1[2]*(mat2+2)[3] + mat1[3]*(mat2+3)[3];
+	result[0]     = mat1[0]*mat2[0]     + mat1[1]*(mat2+4)[0]    + mat1[2]*(mat2+8)[0]     + mat1[3]*(mat2+12)[0];
+	result[1]     = mat1[0]*mat2[1]     + mat1[1]*(mat2+4)[1]    + mat1[2]*(mat2+8)[1]     + mat1[3]*(mat2+12)[1];
+	result[2]     = mat1[0]*mat2[2]     + mat1[1]*(mat2+4)[2]    + mat1[2]*(mat2+8)[2]     + mat1[3]*(mat2+12)[2];
+	result[3]     = mat1[0]*mat2[3]     + mat1[1]*(mat2+4)[3]    + mat1[2]*(mat2+8)[3]     + mat1[3]*(mat2+12)[3];
 	
 	(result+4)[0] = (mat1+4)[0]*mat2[0] + (mat1+4)[1]*(mat2+4)[0] + (mat1+4)[2]*(mat2+8)[0] + (mat1+4)[3]*(mat2+12)[0];
 	(result+4)[1] = (mat1+4)[0]*mat2[1] + (mat1+4)[1]*(mat2+4)[1] + (mat1+4)[2]*(mat2+8)[1] + (mat1+4)[3]*(mat2+12)[1];
@@ -123,9 +126,14 @@ void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, float* j
 	multiplyMatrices4x4(transformation[0], translation[0], tmp2[0]);
 	
 	//final transformation
-	jointTranspos[0] = transformation[0][0]*joint.position.x + transformation[0][1]*joint.position.y + transformation[0][2]*joint.position.z + transformation[0][3];
-	jointTranspos[1] = transformation[1][0]*joint.position.x + transformation[1][1]*joint.position.y + transformation[1][2]*joint.position.z + transformation[1][3];
-	jointTranspos[2] = transformation[2][0]*joint.position.x + transformation[2][1]*joint.position.y + transformation[2][2]*joint.position.z + transformation[2][3];
+
+        //         Y  X                  Z  Y
+        //         | /                   | /
+        // Kinect  |/ ____ Z  ,   World  |/_____X
+
+	jointTranspos[0] = transformation[0][0]*joint.position.z + transformation[0][1]*joint.position.x + transformation[0][2]*joint.position.y + transformation[0][3];
+	jointTranspos[1] = transformation[1][0]*joint.position.z + transformation[1][1]*joint.position.x + transformation[1][2]*joint.position.y + transformation[1][3];
+	jointTranspos[2] = transformation[2][0]*joint.position.z + transformation[2][1]*joint.position.x + transformation[2][2]*joint.position.y + transformation[2][3];
 
 }
 
@@ -137,10 +145,11 @@ int main(int argc, char** argv){
   HumanReader humanRd(node);
   RobotReader robotRd(node);
 
+  int niut_RIGHT_HAND = 15;
   humanMonitor::niut_JOINT_STR testJoint;
-  //testJoint.position.x = 2.8;
-  //testJoint.position.y = 3.2;
-  //testJoint.position.z = 4.0;
+  testJoint.position.x = -6.55;
+  testJoint.position.y = -2.2;
+  testJoint.position.z = -6.25;
   float testTranspos[3], kinectPos[6];
   kinectPos[0] = 7.25;
   kinectPos[1] = 6.55;
@@ -151,7 +160,7 @@ int main(int argc, char** argv){
 
 
   while( node.ok() ){
-    testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
+    //testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
 
     projectJoint(testJoint, kinectPos, testTranspos);
 
