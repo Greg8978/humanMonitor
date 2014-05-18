@@ -142,14 +142,15 @@ int main(int argc, char** argv){
   ros::init(argc, argv, "humanMonitor");
   ros::NodeHandle node;
 
+  std::cout << "Initializing HumanReader " << std:: endl;
   HumanReader humanRd(node);
   RobotReader robotRd(node);
 
   int niut_RIGHT_HAND = 15;
   humanMonitor::niut_JOINT_STR testJoint;
-  testJoint.position.x = -6.55;
-  testJoint.position.y = -2.2;
-  testJoint.position.z = -6.25;
+  //testJoint.position.x = -6.55;
+  //testJoint.position.y = -2.2;
+  //testJoint.position.z = -6.25;
   float testTranspos[3], kinectPos[6];
   kinectPos[0] = 7.25;
   kinectPos[1] = 6.55;
@@ -160,12 +161,12 @@ int main(int argc, char** argv){
 
 
   while( node.ok() ){
-    //testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
+    testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
 
     projectJoint(testJoint, kinectPos, testTranspos);
 
 
-    std::cout << "Hand position : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
+    //std::cout << "Hand position : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
   }
 
   //while( node.ok() ){
