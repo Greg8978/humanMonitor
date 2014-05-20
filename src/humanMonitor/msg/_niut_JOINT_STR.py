@@ -64,8 +64,8 @@ float64 z
     try:
       _x = self
       buff.write(_struct_4d.pack(_x.confidence, _x.position.x, _x.position.y, _x.position.z))
-    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
-    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
+    except struct.error as se: self._check_types(se)
+    except TypeError as te: self._check_types(te)
 
   def deserialize(self, str):
     """
@@ -94,8 +94,8 @@ float64 z
     try:
       _x = self
       buff.write(_struct_4d.pack(_x.confidence, _x.position.x, _x.position.y, _x.position.z))
-    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
-    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
+    except struct.error as se: self._check_types(se)
+    except TypeError as te: self._check_types(te)
 
   def deserialize_numpy(self, str, numpy):
     """
