@@ -18,14 +18,13 @@ HumanReader::HumanReader(ros::NodeHandle& node): node_(node){
 
 void HumanReader::humanJointCallBack(const humanMonitor::niut_HUMAN_LIST::ConstPtr& msg){
 //msg->filtered_users[i];
-  std::cout << "we got message from niut" << std::endl;
-  for(unsigned int i = 0; i < 16; i++){
-    std::cout << "Test if there is a user" << std::endl;
-    if( msg->filtered_users[i].trackedId > -1 ){
+  for(int i=0; i<16; i++){
+    if( msg->filtered_users[i].trackedId > -1 && msg->filtered_users[i].date.t_sec != 0){
         std::cout << "There is a user!" << std::endl;
         m_LastConfig[msg->filtered_users[i].trackedId] = msg->filtered_users[i];
-        m_LastTime = msg->filtered_users[i].date_discovered.t_sec * pow(10,9) + 
-                     msg->filtered_users[i].date_discovered.t_usec;
+        m_LastTime = msg->filtered_users[i].date.t_sec * pow(10,9) + 
+                     msg->filtered_users[i].date.t_usec;
+        std::cout << "time from callback " << m_LastTime << std::endl;
         if(HumanReader_DEBUG){
             std::cout << "user's trackedId" << msg->filtered_users[i].trackedId << std::endl;
         }

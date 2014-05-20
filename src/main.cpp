@@ -1,10 +1,12 @@
 #include <ros/ros.h>
 
 #include "humanMonitor/HumanReader.h"
-#include "humanMonitor/RobotReader.h"
+#include "tf/transform_listener.h"
 
 
-
+   // Robot config
+static   std::map<std::string, humanMonitor::niut_JOINT_STR> m_LastConfig;
+static   uint64_t m_LastTime;
 
 void multiplyMatrices4x4(float* result,float* mat1, float* mat2){
 
@@ -121,8 +123,8 @@ void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, float* j
 	rotZ[3][3] = 1;
 	
 	//transformation matrice = translation*rotX*rotY*rotZ
-	multiplyMatrices4x4(tmp1[0], rotY[0], rotZ[0]);
-	multiplyMatrices4x4(tmp2[0], rotX[0], tmp1[0]);
+	multiplyMatrices4x4(tmp1[0], rotX[0], rotY[0]);
+	multiplyMatrices4x4(tmp2[0], rotZ[0], tmp1[0]);
 	multiplyMatrices4x4(transformation[0], translation[0], tmp2[0]);
 	
 	//final transformation
@@ -137,14 +139,43 @@ void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, float* j
 
 }
 
+void getPr2JointLocation(tf::TransformListener &listener, std::string joint){
+    tf::StampedTransform transform;
+    std::string jointId = "/";
+    jointId.append(joint);
+    try{
+        ros::Time now = ros::Time::now();
+        listener.waitForTransform("/map", jointId,
+                              now, ros::Duration(3.0));
+        listener.lookupTransform("/map", jointId,
+                              now, transform);
+        m_LastTime = now.toNSec();
+        m_LastConfig[joint].position.x = transform.getOrigin().x();
+        m_LastConfig[joint].position.y = transform.getOrigin().y();
+        m_LastConfig[joint].position.z = transform.getOrigin().z();
+
+    }    
+    catch (tf::TransformException ex){
+        ROS_ERROR("%s",ex.what());
+    }
+}
+
+void updateRobot(tf::TransformListener &listener){
+   getPr2JointLocation(listener, "torso_lift_link");
+   getPr2JointLocation(listener, "r_gripper_l_finger_link");
+   getPr2JointLocation(listener, "l_gripper_l_finger_link");
+ }
+
+
 int main(int argc, char** argv){
 
   ros::init(argc, argv, "humanMonitor");
   ros::NodeHandle node;
 
-  std::cout << "Initializing HumanReader " << std:: endl;
   HumanReader humanRd(node);
-  RobotReader robotRd(node);
+
+
+  tf::TransformListener listener;
 
   int niut_RIGHT_HAND = 15;
   humanMonitor::niut_JOINT_STR testJoint;
@@ -161,12 +192,17 @@ int main(int argc, char** argv){
 
 
   while( node.ok() ){
+    ros::spinOnce();
     testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
 
     projectJoint(testJoint, kinectPos, testTranspos);
+    updateRobot(listener);
 
-
-    //std::cout << "Hand position : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
+    //std::cout << "time " << humanRd.m_LastTime << std::endl;
+    std::cout << "Hand position : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
+    std::cout << "Robot r_gripper : x :" << m_LastConfig["r_gripper_l_finger_link"].position.x
+        << " y : " << m_LastConfig["r_gripper_l_finger_link"].position.y << " z : "
+        << m_LastConfig["r_gripper_l_finger_link"].position.z << std::endl;
   }
 
   //while( node.ok() ){
