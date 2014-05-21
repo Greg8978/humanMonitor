@@ -33,7 +33,7 @@ void multiplyMatrices4x4(float* result,float* mat1, float* mat2){
 
 }
 
-void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, humanMonitor::niut_JOINT_STR jointW){
+void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, humanMonitor::niut_JOINT_STR& jointW){
 
 	float translation[4][4], rotX[4][4], rotY[4][4], rotZ[4][4], transformation[4][4], tmp1[4][4], tmp2[4][4];
 
@@ -183,8 +183,8 @@ int main(int argc, char** argv){
   ros::NodeHandle node;
 
   HumanReader humanRd(node);
-  float far = 3.0;
-  float close = 1.0;
+  float far = 1.5;
+  float close = 0.3;
   float distBodies = 0.0;
   float distLHandToGripper = 0.0;
   float distRHandToGripper = 0.0;
@@ -218,6 +218,7 @@ int main(int argc, char** argv){
 
     // For now we focus on human with trackedId = 0.
     if(humanRd.isPresent()){
+      std::cout << "Human is present!" << std::endl;
       //Get Human joints in kinect frame
       rHandJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
       lHandJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_LEFT_HAND];
@@ -231,7 +232,12 @@ int main(int argc, char** argv){
 
 
       //Compute relative distances (human / robot):
+      std::cout << "Human Torso x: " << torsoJointW.position.x << "y: " << torsoJointW.position.y << std::endl;
+      std::cout << "Robot Torso x: " << m_LastConfig[robotTorso].position.x << "y: " <<  m_LastConfig[robotTorso].position.y << std::endl;
+
       distBodies = dist2D(torsoJointW, m_LastConfig[robotTorso]);
+      std::cout << "Dist human robot: " << distBodies << std::endl;
+
       if( distBodies > far ){
         std::cout << "[Fact] Human is far" << std::endl;
 
@@ -242,14 +248,14 @@ int main(int argc, char** argv){
         //Left gripper:
         distLHandToGripper = dist3D(lHandJointW, m_LastConfig[robotLGripper]);
         distRHandToGripper = dist3D(rHandJointW, m_LastConfig[robotLGripper]);
-        if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
+        if( (distLHandToGripper < 0.2) || (distRHandToGripper < 0.2)){
           std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
         }
 
         //Right gripper
         distLHandToGripper = dist3D(lHandJointW, m_LastConfig[robotRGripper]);
         distRHandToGripper = dist3D(rHandJointW, m_LastConfig[robotRGripper]);
-        if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
+        if( (distLHandToGripper < 0.2) || (distRHandToGripper < 0.2)){
            std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
         }
 
