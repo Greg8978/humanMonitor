@@ -2,7 +2,7 @@
 
 #include "humanMonitor/HumanReader.h"
 #include "tf/transform_listener.h"
-
+#include <math.h>       /* sqrt */
 
    // Robot config
 static   std::map<std::string, humanMonitor::niut_JOINT_STR> m_LastConfig;
@@ -33,11 +33,10 @@ void multiplyMatrices4x4(float* result,float* mat1, float* mat2){
 
 }
 
-void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, float* jointTranspos){
+void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, humanMonitor::niut_JOINT_STR jointW){
 
 	float translation[4][4], rotX[4][4], rotY[4][4], rotZ[4][4], transformation[4][4], tmp1[4][4], tmp2[4][4];
-	
-	
+
 	//translation transformation matrice
 	translation[0][0] = 1;
 	translation[0][1] = 0;
@@ -133,11 +132,22 @@ void projectJoint(humanMonitor::niut_JOINT_STR joint, float* kinectPos, float* j
         //         | /                   | /
         // Kinect  |/ ____ Z  ,   World  |/_____X
 
-	jointTranspos[0] = transformation[0][0]*joint.position.z + transformation[0][1]*joint.position.x + transformation[0][2]*joint.position.y + transformation[0][3];
-	jointTranspos[1] = transformation[1][0]*joint.position.z + transformation[1][1]*joint.position.x + transformation[1][2]*joint.position.y + transformation[1][3];
-	jointTranspos[2] = transformation[2][0]*joint.position.z + transformation[2][1]*joint.position.x + transformation[2][2]*joint.position.y + transformation[2][3];
+	jointW.position.x = transformation[0][0]*joint.position.z + transformation[0][1]*joint.position.x + transformation[0][2]*joint.position.y + transformation[0][3];
+	jointW.position.y = transformation[1][0]*joint.position.z + transformation[1][1]*joint.position.x + transformation[1][2]*joint.position.y + transformation[1][3];
+	jointW.position.z = transformation[2][0]*joint.position.z + transformation[2][1]*joint.position.x + transformation[2][2]*joint.position.y + transformation[2][3];
 
 }
+
+float dist3D(humanMonitor::niut_JOINT_STR joint1, humanMonitor::niut_JOINT_STR joint2){
+    return sqrt( pow(joint1.position.x - joint2.position.x, 2) + pow(joint1.position.y - joint2.position.y, 2) + pow(joint1.position.z - joint2.position.z, 2)  );
+}
+
+
+float dist2D(humanMonitor::niut_JOINT_STR joint1, humanMonitor::niut_JOINT_STR joint2){
+    return sqrt( pow(joint1.position.x - joint2.position.x, 2) + pow(joint1.position.y - joint2.position.y, 2) );
+}
+
+
 
 void getPr2JointLocation(tf::TransformListener &listener, std::string joint){
     tf::StampedTransform transform;
@@ -173,16 +183,28 @@ int main(int argc, char** argv){
   ros::NodeHandle node;
 
   HumanReader humanRd(node);
+  float far = 3.0;
+  float close = 1.0;
+  float distBodies = 0.0;
+  float distLHandToGripper = 0.0;
+  float distRHandToGripper = 0.0;
 
 
   tf::TransformListener listener;
-
+  int niut_TORSO = 3;
+  int niut_LEFT_HAND = 9;
   int niut_RIGHT_HAND = 15;
-  humanMonitor::niut_JOINT_STR testJoint;
-  //testJoint.position.x = -6.55;
-  //testJoint.position.y = -2.2;
-  //testJoint.position.z = -6.25;
-  float testTranspos[3], kinectPos[6];
+  std::string robotTorso = "torso_lift_link";
+  std::string robotLGripper = "l_gripper_l_finger_link";
+  std::string robotRGripper = "r_gripper_l_finger_link";
+  humanMonitor::niut_JOINT_STR rHandJoint;
+  humanMonitor::niut_JOINT_STR lHandJoint;
+  humanMonitor::niut_JOINT_STR torsoJoint;
+  humanMonitor::niut_JOINT_STR rHandJointW;
+  humanMonitor::niut_JOINT_STR lHandJointW;
+  humanMonitor::niut_JOINT_STR torsoJointW;
+  float kinectPos[6];
+  //TODO: Move this in a service
   kinectPos[0] = 7.25;
   kinectPos[1] = 6.55;
   kinectPos[2] = 2.2;
@@ -193,27 +215,47 @@ int main(int argc, char** argv){
 
   while( node.ok() ){
     ros::spinOnce();
-    testJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
 
-    projectJoint(testJoint, kinectPos, testTranspos);
-    updateRobot(listener);
+    // For now we focus on human with trackedId = 0.
+    if(humanRd.isPresent()){
+      //Get Human joints in kinect frame
+      rHandJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
+      lHandJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_LEFT_HAND];
+      torsoJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_TORSO];
 
-    //std::cout << "time " << humanRd.m_LastTime << std::endl;
-    std::cout << "Hand position : x :" << testTranspos[0] << " y : " << testTranspos[1] << " z : " << testTranspos[2] << std::endl;
-    std::cout << "Robot r_gripper : x :" << m_LastConfig["r_gripper_l_finger_link"].position.x
-        << " y : " << m_LastConfig["r_gripper_l_finger_link"].position.y << " z : "
-        << m_LastConfig["r_gripper_l_finger_link"].position.z << std::endl;
+      //Get joints in same frame
+      projectJoint(rHandJoint, kinectPos, rHandJointW);
+      projectJoint(lHandJoint, kinectPos, lHandJointW); 
+      projectJoint(torsoJoint, kinectPos, torsoJointW); 
+      updateRobot(listener);
+
+
+      //Compute relative distances (human / robot):
+      distBodies = dist2D(torsoJointW, m_LastConfig[robotTorso]);
+      if( distBodies > far ){
+        std::cout << "[Fact] Human is far" << std::endl;
+
+      }else if(distBodies > close){
+        std::cout << "[Fact] Human is near" << std::endl;
+
+        //We compute the hand to gripper distance in NEAR case.
+        //Left gripper:
+        distLHandToGripper = dist3D(lHandJointW, m_LastConfig[robotLGripper]);
+        distRHandToGripper = dist3D(rHandJointW, m_LastConfig[robotLGripper]);
+        if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
+          std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
+        }
+
+        //Right gripper
+        distLHandToGripper = dist3D(lHandJointW, m_LastConfig[robotRGripper]);
+        distRHandToGripper = dist3D(rHandJointW, m_LastConfig[robotRGripper]);
+        if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
+           std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
+        }
+
+      }else{
+        std::cout << "[Fact] Human is too close!" << std::endl;
+      }
+    }
   }
-
-  //while( node.ok() ){
-  // std::cout << "Last human time received " << humanRd.m_LastTime << std::endl;
-  // std::cout << "number of human received " << humanRd.m_LastConfig.size() << std::endl;
-
-
-
-
-   //std::cout << "Last robot time received " << robotRd.m_LastTime << std::endl;
-  // std::cout << "number of robot joint received " << robotRd.m_LastConfig.size() << std::endl;
-  //}
-
 }

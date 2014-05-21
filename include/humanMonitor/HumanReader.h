@@ -13,9 +13,10 @@ class HumanReader{
     public:
         //TRBuffer< map<std::String,bool> > m_RobotRingBuffer;
         std::map<int, humanMonitor::niut_USER_STR> m_LastConfig;
-        uint64_t m_LastTime;
+        unsigned long m_LastTime;
 
         HumanReader(ros::NodeHandle& node);
+        bool isPresent();
 
     private:
         ros::Subscriber sub;
