@@ -3,10 +3,14 @@
 #include "humanMonitor/HumanReader.h"
 #include "tf/transform_listener.h"
 #include <math.h>       /* sqrt */
+#include "humanMonitor/TRBuffer.h"
 
-   // Robot config
-static   std::map<std::string, humanMonitor::niut_JOINT_STR> m_LastConfig;
-static   uint64_t m_LastTime;
+// Robot config
+static   std::map<std::string, humanMonitor::niut_JOINT_STR> m_RobotLastConfig;
+static   std::map<std::string, humanMonitor::niut_JOINT_STR> m_HumanLastConfig;
+static   long m_RobotLastTime;
+static   TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STR > > m_HumanRBuffer(100);
+//static   TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STR > > m_RobotRBuffer(100);
 
 void multiplyMatrices4x4(double* result,double* mat1, double* mat2){
 
@@ -159,10 +163,12 @@ void getPr2JointLocation(tf::TransformListener &listener, std::string joint){
                               now, ros::Duration(3.0));
         listener.lookupTransform("/map", jointId,
                               now, transform);
-        m_LastTime = now.toNSec();
-        m_LastConfig[joint].position.x = transform.getOrigin().x();
-        m_LastConfig[joint].position.y = transform.getOrigin().y();
-        m_LastConfig[joint].position.z = transform.getOrigin().z();
+        m_RobotLastTime = now.toNSec();
+        m_RobotLastConfig[joint].position.x = transform.getOrigin().x();
+        m_RobotLastConfig[joint].position.y = transform.getOrigin().y();
+        m_RobotLastConfig[joint].position.z = transform.getOrigin().z();
+        // We put these in a ring buffer:
+        //m_RobotRBufffer.push_back(m_RobotLastTime, m_RobotLastConfig);
 
     }    
     catch (tf::TransformException ex){
@@ -176,6 +182,32 @@ void updateRobot(tf::TransformListener &listener){
    getPr2JointLocation(listener, "l_gripper_l_finger_link");
  }
 
+bool isMoving(TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STR > > confBuffer, 
+        std::string joint, long timelapse, double distanceThreshold, int dimentionality){
+
+    int index;
+    double dist = 0.0;
+    long actualTimelapse = 0;
+    long timeNew = confBuffer.getTimeFromIndex( confBuffer.size() -1 );
+    long timeOld = timeNew - timelapse;
+    humanMonitor::niut_JOINT_STR jointNew = confBuffer.getDataFromIndex( confBuffer.size() -1 )[joint];
+
+
+    index = confBuffer.getIndexAfter(timeOld);
+    actualTimelapse = timeNew - confBuffer.getTimeFromIndex(index);   // Actual timelapse
+    humanMonitor::niut_JOINT_STR jointOld = confBuffer.getDataFromIndex( index )[joint];
+
+    if( dimentionality == 2)
+        dist = dist2D(jointOld, jointNew);
+    else
+        dist = dist3D(jointOld, jointNew); 
+
+
+    if( dist < distanceThreshold * actualTimelapse / timelapse)
+        return false;
+    else
+        return true;
+}
 
 int main(int argc, char** argv){
 
@@ -194,6 +226,10 @@ int main(int argc, char** argv){
   int niut_TORSO = 3;
   int niut_LEFT_HAND = 9;
   int niut_RIGHT_HAND = 15;
+  std::string humanTorso = "torso";
+  std::string humanLHand = "l_hand";
+  std::string humanRHand = "r_hand";
+
   std::string robotTorso = "torso_lift_link";
   std::string robotLGripper = "l_gripper_l_finger_link";
   std::string robotRGripper = "r_gripper_l_finger_link";
@@ -226,21 +262,44 @@ int main(int argc, char** argv){
 
 
       //Get joints in same frame
-      if(rHandJoint.position.x != 0.0)
+      if(rHandJoint.position.x != 0.0){
         projectJoint(rHandJoint, kinectPos, rHandJointW);
-      if(lHandJoint.position.x != 0.0)
+        m_HumanLastConfig[humanRHand] = rHandJointW;
+      }
+      if(lHandJoint.position.x != 0.0){
         projectJoint(lHandJoint, kinectPos, lHandJointW);
-      if(torsoJoint.position.x != 0.0)
+        m_HumanLastConfig[humanLHand] = lHandJointW;
+      }
+      if(torsoJoint.position.x != 0.0){
         projectJoint(torsoJoint, kinectPos, torsoJointW);
+        m_HumanLastConfig[humanTorso] = torsoJointW;
+      }
+      m_HumanRBuffer.push_back(humanRd.m_LastTime, m_HumanLastConfig);
+
+      //Compute human motion:
+      long timeThreshold = pow(10,9);               // 1sec
+      double distanceThreshold = 0.1;               // 10 cms
+      if( isMoving(m_HumanRBuffer, humanTorso, timeThreshold, distanceThreshold, 2) ){
+        std::cout << "[Fact] Human is moving!" << std::endl;
+        if( isMoving(m_HumanRBuffer, humanRHand, timeThreshold, distanceThreshold/3, 3) ){
+            std::cout << "[Fact] Human right hand is moving" << std::endl;
+        }
+        if( isMoving(m_HumanRBuffer, humanLHand, timeThreshold, distanceThreshold/3, 3) ){
+            std::cout << "[Fact] Human left hand is moving" << std::endl;
+        }
+      }
+
+
+
       updateRobot(listener);
 
 
       //Compute relative distances (human / robot):
       std::cout << "Human Torso x: " << torsoJointW.position.x << "y: " << torsoJointW.position.y << std::endl;
-      std::cout << "Robot Torso x: " << m_LastConfig[robotTorso].position.x << "y: " <<  m_LastConfig[robotTorso].position.y << std::endl;
+      std::cout << "Robot Torso x: " << m_RobotLastConfig[robotTorso].position.x << "y: " <<  m_RobotLastConfig[robotTorso].position.y << std::endl;
 
       if(torsoJoint.position.x != 0.0){
-        distBodies = dist2D(torsoJointW, m_LastConfig[robotTorso]);
+        distBodies = dist2D(torsoJointW, m_RobotLastConfig[robotTorso]);
         std::cout << "Dist human robot: " << distBodies << std::endl;
 
         if( distBodies > far ){
@@ -251,15 +310,15 @@ int main(int argc, char** argv){
 
           //We compute the hand to gripper distance in NEAR case.
           //Left gripper:
-          distLHandToGripper = dist3D(lHandJointW, m_LastConfig[robotLGripper]);
-          distRHandToGripper = dist3D(rHandJointW, m_LastConfig[robotLGripper]);
+          distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotLGripper]);
+          distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotLGripper]);
           if( (distLHandToGripper < 0.2) || (distRHandToGripper < 0.2)){
             std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
           }
 
           //Right gripper
-          distLHandToGripper = dist3D(lHandJointW, m_LastConfig[robotRGripper]);
-          distRHandToGripper = dist3D(rHandJointW, m_LastConfig[robotRGripper]);
+          distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotRGripper]);
+          distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotRGripper]);
           if( (distLHandToGripper < 0.2) || (distRHandToGripper < 0.2)){
              std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
           }
