@@ -215,8 +215,8 @@ int main(int argc, char** argv){
   ros::NodeHandle node;
 
   HumanReader humanRd(node);
-  double far = 1.5;
-  double close = 0.3;
+  double far = 2.5;
+  double close = 1.3;
   double distBodies = 0.0;
   double distLHandToGripper = 0.0;
   double distRHandToGripper = 0.0;
@@ -278,14 +278,14 @@ int main(int argc, char** argv){
 
       //Compute human motion:
       long timeThreshold = pow(10,9);               // 1sec
-      double distanceThreshold = 0.1;               // 10 cms
+      double distanceThreshold = 0.2;               // 10 cms
       if( isMoving(m_HumanRBuffer, humanTorso, timeThreshold, distanceThreshold, 2) ){
         std::cout << "[Fact] Human is moving!" << std::endl;
       }else{
-        if( isMoving(m_HumanRBuffer, humanRHand, timeThreshold, distanceThreshold/3, 3) ){
+        if( isMoving(m_HumanRBuffer, humanRHand, timeThreshold, distanceThreshold*4/3, 3) ){
             std::cout << "[Fact] Human right hand is moving" << std::endl;
         }
-        if( isMoving(m_HumanRBuffer, humanLHand, timeThreshold, distanceThreshold/3, 3) ){
+        if( isMoving(m_HumanRBuffer, humanLHand, timeThreshold, distanceThreshold*4/3, 3) ){
             std::cout << "[Fact] Human left hand is moving" << std::endl;
         }
       }
@@ -313,14 +313,14 @@ int main(int argc, char** argv){
           //Left gripper:
           distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotLGripper]);
           distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotLGripper]);
-          if( (distLHandToGripper < 0.2) || (distRHandToGripper < 0.2)){
+          if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
             std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
           }
 
           //Right gripper
           distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotRGripper]);
           distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotRGripper]);
-          if( (distLHandToGripper < 0.2) || (distRHandToGripper < 0.2)){
+          if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
              std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
           }
 
