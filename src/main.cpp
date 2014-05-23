@@ -281,6 +281,7 @@ int main(int argc, char** argv){
       double distanceThreshold = 0.1;               // 10 cms
       if( isMoving(m_HumanRBuffer, humanTorso, timeThreshold, distanceThreshold, 2) ){
         std::cout << "[Fact] Human is moving!" << std::endl;
+      }else{
         if( isMoving(m_HumanRBuffer, humanRHand, timeThreshold, distanceThreshold/3, 3) ){
             std::cout << "[Fact] Human right hand is moving" << std::endl;
         }
