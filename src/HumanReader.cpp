@@ -21,11 +21,11 @@ void HumanReader::humanJointCallBack(const humanMonitor::niut_HUMAN_LIST::ConstP
 //msg->filtered_users[i];
   for(int i=0; i<16; i++){
     if( msg->filtered_users[i].trackedId > -1 && msg->filtered_users[i].date.t_sec != 0){
-        std::cout << "There is a user!" << std::endl;
+      //        std::cout << "There is a user!" << std::endl;
         m_LastConfig[msg->filtered_users[i].trackedId] = msg->filtered_users[i];
         m_LastTime = msg->filtered_users[i].date.t_sec * pow(10,9) + 
                      msg->filtered_users[i].date.t_usec;
-        std::cout << "time from callback " << m_LastTime << std::endl;
+	//        std::cout << "time from callback " << m_LastTime << std::endl;
         if(HumanReader_DEBUG){
             std::cout << "user's trackedId" << msg->filtered_users[i].trackedId << std::endl;
         }

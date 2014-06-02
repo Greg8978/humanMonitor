@@ -4,6 +4,9 @@
 #include "tf/transform_listener.h"
 #include <math.h>       /* sqrt */
 #include "humanMonitor/TRBuffer.h"
+#include "opaque-pub.h"
+#include "mp-pub.h"
+
 
 // Robot config
 static   std::map<std::string, humanMonitor::niut_JOINT_STR> m_RobotLastConfig;
@@ -202,16 +205,50 @@ bool isMoving(TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STR > > 
     else
         dist = dist3D(jointOld, jointNew); 
 
-
-    if( dist < distanceThreshold * actualTimelapse / timelapse)
-        return false;
-    else
-        return true;
+    // std::cout << "Distance is " << dist << std::endl;
+    //		std::cout << "ds*actualTimeLapse / timelapse " << distanceThreshold * actualTimelapse / timelapse << std::endl;
+    //	std::cout << "actual timelapse "<< actualTimelapse << std::endl;
+    if( dist < distanceThreshold * actualTimelapse / timelapse) {
+	  return false;
+	}
+	else { 
+	  return true;
+	}
 }
 
+void sendMessageOprs(std::string strMessage) {
+  std::string stringMessageBase="(AGENT-STATEMENT PR2_ROBOT HERAKLES_HUMAN1 ";
+  std::string completeString="";
+  
+  char dest[10]="OPRS_DB";
+  char message[100];
+  
+  completeString=stringMessageBase+strMessage+")";
+  
+
+  strcpy(message,completeString.c_str());
+  //  ROS_INFO("Return message %s",message);
+  send_message_string(message,dest);
+  
+}
 int main(int argc, char** argv){
 
   ros::init(argc, argv, "humanMonitor");
+
+
+  int mpSocket=external_register_to_the_mp_prot("HumanMonitor", 3300, STRINGS_PT); //oprs stuff
+  bool wasMoving=0;
+  bool wasMovingRightHand=0;
+  bool wasMovingLeftHand=0;
+  bool wasPresent=0;
+  bool wasFar=0;
+  bool wasClose=0;
+  bool wasTooClose=0;
+  bool wasCloseToRightGripper=0;
+  bool wasCloseToLeftGripper=0;
+
+  std::string stringMessageComplete;
+
   ros::NodeHandle node;
 
   HumanReader humanRd(node);
@@ -249,12 +286,18 @@ int main(int argc, char** argv){
   kinectPos[5] = -1.57;
 
 
+
   while( node.ok() ){
     ros::spinOnce();
 
     // For now we focus on human with trackedId = 0.
     if(humanRd.isPresent()){
-      std::cout << "[Fact] Human is present!" << std::endl;
+      if (wasPresent==0) {
+	std::cout << "[Fact] Human is present!" << std::endl;
+	sendMessageOprs("isPresent TRUE"); 
+	wasPresent=1;
+      }
+
       //Get Human joints in kinect frame
       rHandJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_RIGHT_HAND];
       lHandJoint = humanRd.m_LastConfig[0].skeleton.joint[niut_LEFT_HAND];
@@ -279,16 +322,50 @@ int main(int argc, char** argv){
       //Compute human motion:
       long timeThreshold = pow(10,9);               // 1sec
       double distanceThreshold = 0.2;               // 10 cms
-      if( isMoving(m_HumanRBuffer, humanTorso, timeThreshold, distanceThreshold, 2) ){
-        std::cout << "[Fact] Human is moving!" << std::endl;
-      }else{
-        if( isMoving(m_HumanRBuffer, humanRHand, timeThreshold, distanceThreshold*4/3, 3) ){
-            std::cout << "[Fact] Human right hand is moving" << std::endl;
-        }
-        if( isMoving(m_HumanRBuffer, humanLHand, timeThreshold, distanceThreshold*4/3, 3) ){
-            std::cout << "[Fact] Human left hand is moving" << std::endl;
-        }
+      if( (isMoving(m_HumanRBuffer, humanTorso, timeThreshold, distanceThreshold, 2)) ){
+	if (wasMoving==0){
+	  std::cout << "[Fact] Human is moving!" << std::endl;
+	  sendMessageOprs("isMoving TRUE");
+	  wasMoving=1;
+	}
+	if(wasMovingRightHand==0) {
+	  sendMessageOprs("isMovingRightHand TRUE");
+	  wasMovingRightHand=1;
+	}
+	if(wasMovingLeftHand==0) {
+	  sendMessageOprs("isMovingLeftHand TRUE");
+	  wasMovingLeftHand=1;
+	}
       }
+      else
+	{
+	  if(wasMoving==1) {
+	    std::cout << "[Fact] Human is not moving!" << std::endl;
+	    sendMessageOprs("isMoving FALSE");
+	    wasMoving=0;
+	  }
+	  if((isMoving(m_HumanRBuffer, humanRHand, timeThreshold, distanceThreshold*4/3, 3)) && (wasMovingRightHand==0)){
+	    wasMovingRightHand=1;
+	    sendMessageOprs("isMovingRightHand TRUE");
+	    std::cout << "[Fact] Human right hand is moving" << std::endl;
+	    
+	  }
+	  else if(wasMovingRightHand==1) {
+	    wasMovingRightHand=0;
+	    sendMessageOprs("isMovingRightHand FALSE");
+	  }
+	  if( (isMoving(m_HumanRBuffer, humanLHand, timeThreshold, distanceThreshold*4/3, 3)) && (wasMovingLeftHand==0 )){
+	    wasMovingLeftHand=1;
+	    sendMessageOprs("isMovingLeftHand  TRUE");
+	    std::cout << "[Fact] Human left hand is moving" << std::endl;
+	  }
+	  else if (wasMovingLeftHand==1) {
+	    wasMovingLeftHand=0;
+	    sendMessageOprs("isMovingLeftHand FALSE");
+	  }
+	}
+      
+	  
 
 
 
@@ -296,39 +373,68 @@ int main(int argc, char** argv){
 
 
       //Compute relative distances (human / robot):
-      std::cout << "Human Torso x: " << torsoJointW.position.x << "y: " << torsoJointW.position.y << std::endl;
-      std::cout << "Robot Torso x: " << m_RobotLastConfig[robotTorso].position.x << "y: " <<  m_RobotLastConfig[robotTorso].position.y << std::endl;
+      //std::cout << "Human Torso x: " << torsoJointW.position.x << "y: " << torsoJointW.position.y << std::endl;
+      // std::cout << "Robot Torso x: " << m_RobotLastConfig[robotTorso].position.x << "y: " <<  m_RobotLastConfig[robotTorso].position.y << std::endl;
 
       if(torsoJoint.position.x != 0.0){
         distBodies = dist2D(torsoJointW, m_RobotLastConfig[robotTorso]);
-        std::cout << "Dist human robot: " << distBodies << std::endl;
+	 std::cout << "Dist human robot: " << distBodies << std::endl;
 
-        if( distBodies > far ){
-          std::cout << "[Fact] Human is far" << std::endl;
+	 if( (distBodies > far) ){
+	  if (wasFar==0) {
+	    std::cout << "[Fact] Human is far" << std::endl;
+	    sendMessageOprs("distance FAR");
+	    wasFar=1;
+	    wasTooClose=0;
+	    wasClose=0;
+	  }
+	}else if((distBodies > close)){
+	   if (wasClose==0) {
+	     std::cout << "[Fact] Human is near" << std::endl;
+	     wasFar=0;
+	     wasTooClose=0;
+	     wasClose=1;
+	     sendMessageOprs("distance CLOSE");
+	   }
+	  //We compute the hand to gripper distance in NEAR case.
+	  //Left gripper
+	  distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotLGripper]);
+	  distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotLGripper]);
+	  if( ((distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)) && wasCloseToLeftGripper==0) {
+	    wasCloseToLeftGripper=1;
+	    sendMessageOprs("handCloseToLeftGripper TRUE");
+	    std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
+	  }
+	  else if (wasCloseToLeftGripper==1) {
+	    wasCloseToLeftGripper=0;
+	    sendMessageOprs("handCloseToLeftGripper FALSE");
+	  }
 
-        }else if(distBodies > close){
-          std::cout << "[Fact] Human is near" << std::endl;
+	  //Right gripper
+	  distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotRGripper]);
+	  distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotRGripper]);
+	  if( ((distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)) && wasCloseToRightGripper==0){
+	    wasCloseToRightGripper=1;
+	    sendMessageOprs("handCloseToRightGripper TRUE");
+	    std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
+	  }
+	  else if (wasCloseToRightGripper==1) {
+	    wasCloseToRightGripper=0;
+	    sendMessageOprs("handCloseToRightGripper FALSE");
+	  }
 
-          //We compute the hand to gripper distance in NEAR case.
-          //Left gripper:
-          distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotLGripper]);
-          distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotLGripper]);
-          if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
-            std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
-          }
-
-          //Right gripper
-          distLHandToGripper = dist3D(lHandJointW, m_RobotLastConfig[robotRGripper]);
-          distRHandToGripper = dist3D(rHandJointW, m_RobotLastConfig[robotRGripper]);
-          if( (distLHandToGripper < 0.5) || (distRHandToGripper < 0.5)){
-             std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
-          }
-
-        }else
-          std::cout << "[Fact] Human is too close!" << std::endl;
-      }else
-          std::cout << "Human Torso not available " << std::endl;
-    }else
-        std::cout << "[Fact] Human is not present" << std::endl;
+	}else if (wasTooClose==0) {
+	  sendMessageOprs("distance DANGER");
+	  wasTooClose=1;
+	  std::cout << "[Fact] Human is too close!" << std::endl;
+	}
+      }else {
+	std::cout << "Human Torso not available " << std::endl;
+      }
+    } else if (wasPresent==1) {
+      wasPresent=0;
+      sendMessageOprs("isPresent FALSE");
+      std::cout << "[Fact] Human is not present" << std::endl;
+    }
   }
 }
