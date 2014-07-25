@@ -1,0 +1,10 @@
+//this class represents a human joint
+
+#include "tf/LinearMath/Quaternion.h"
+
+
+class HumanJoint {
+public:
+  humanMonitor::niut_GEN_POINT_3D position;
+  tf::Quaternion orientation;
+};
