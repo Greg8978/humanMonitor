@@ -225,6 +225,18 @@ bool isMoving(TRBuffer<Human > confBuffer,
 	}
 }
 
+bool isFacing(HumanJoint jointHuman, HumanJoint jointRobot, int jointHumanId, int jointRobotId, double angleThreshold){
+	double humanAngle = tf::getYaw(jointHuman[jointHumanId].orientation);
+	double humanRobotAngle = acosf( (jointHuman[jointHumanId].position.x - jointRobot[jointRobotId].position.x)/dist2D(jointHuman, jointRobot) );
+	double angleResult = fabs(humanAngle - humanRobotAngle);
+	if( angleResult > angleThreshold ) {
+	  return false;
+	}
+	else { 
+	  return true;
+	}			
+}
+
 void sendMessageOprs(std::string command, std::string strMessage) {
   std::string stringMessageBase="(AGENT-STATEMENT PR2_ROBOT HERAKLES_HUMAN1 ";
 

@@ -1,1 +1,0 @@
-/usr/bin/c++  -fPIC -O2 -g   -shared -Wl,-soname,libgtest.so -o /home/mfiore/catkin_ws/src/humanMonitor/lib/libgtest.so CMakeFiles/gtest.dir/src/gtest-all.cc.o -L/opt/ros/groovy/lib -L/home/mfiore/catkin_ws/src/humanMonitor/build/gtest/src -lpthread -Wl,-rpath,/opt/ros/groovy/lib:/home/mfiore/catkin_ws/src/humanMonitor/build/gtest/src 

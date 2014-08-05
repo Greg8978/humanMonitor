@@ -20,4 +20,8 @@
 *.out
 *.app
 
+# Build
+build
+bin
+
 *~
