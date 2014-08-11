@@ -179,8 +179,8 @@ uint32 value
           buff.write(_struct_3d.pack(_x.x, _x.y, _x.z))
         _v12 = _v10.unused
         buff.write(_struct_I.pack(_v12.value))
-    except struct.error as se: self._check_types(se)
-    except TypeError as te: self._check_types(te)
+    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
+    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
   def deserialize(self, str):
     """
@@ -327,8 +327,8 @@ uint32 value
           buff.write(_struct_3d.pack(_x.x, _x.y, _x.z))
         _v36 = _v34.unused
         buff.write(_struct_I.pack(_v36.value))
-    except struct.error as se: self._check_types(se)
-    except TypeError as te: self._check_types(te)
+    except struct.error as se: self._check_types(struct.error("%s: '%s' when writing '%s'" % (type(se), str(se), str(_x))))
+    except TypeError as te: self._check_types(ValueError("%s: '%s' when writing '%s'" % (type(te), str(te), str(_x))))
 
   def deserialize_numpy(self, str, numpy):
     """

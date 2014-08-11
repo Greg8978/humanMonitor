@@ -225,9 +225,9 @@ bool isMoving(TRBuffer<Human > confBuffer,
 	}
 }
 
-bool isFacing(HumanJoint jointHuman, HumanJoint jointRobot, int jointHumanId, int jointRobotId, double angleThreshold){
-	double humanAngle = tf::getYaw(jointHuman[jointHumanId].orientation);
-	double humanRobotAngle = acosf( (jointHuman[jointHumanId].position.x - jointRobot[jointRobotId].position.x)/dist2D(jointHuman, jointRobot) );
+bool isFacing(HumanJoint jointHuman, HumanJoint jointRobot, double angleThreshold){
+	double humanAngle = tf::getYaw(jointHuman.orientation);
+	double humanRobotAngle = acosf( (jointHuman.position.x - jointRobot.position.x)/dist2D(jointHuman, jointRobot) );
 	double angleResult = fabs(humanAngle - humanRobotAngle);
 	if( angleResult > angleThreshold ) {
 	  return false;
@@ -273,6 +273,7 @@ int main(int argc, char** argv){
   bool wasCloseToRightGripper=0;
   bool wasCloseToLeftGripper=0;
   bool wasExtended=0;
+  bool wasFacingRobot=0;
 
   std::string stringMessageComplete;
 
@@ -370,6 +371,7 @@ int main(int argc, char** argv){
 
       }
       else {  //Miki: else we just update the last config and the human buffer
+	torsoJointW=torsoJoint;
 	m_HumanLastConfig.joints[niut_TORSO]=torsoJoint;
 	m_HumanRBuffer.push_back(humanRd.m_LastTime, m_HumanLastConfig);
 		
@@ -484,6 +486,26 @@ int main(int argc, char** argv){
       robotRGripperJoint.position.z=m_RobotLastConfig[robotRGripper].position.z;
 
 
+      //Computer facing
+      if (USE_MOCAP==1) {
+	if (isFacing(torsoJointW, robotTorsoJoint, 30)){
+	  if (wasFacingRobot==0) {
+	    wasFacingRobot=1;
+	    sendMessageOprs("remove","isFacing OTHER");
+	    sendMessageOprs("add", "isFacing PR2_ROBOT");
+	  
+	  }
+	    
+	}
+	else {
+	  if (wasFacingRobot==1) {
+	    wasFacingRobot=0;
+	    sendMessageOprs("remove","isFacing PR2_ROBOT");
+	    sendMessageOprs("add", "isFacing OTHER");
+
+	  }
+	}
+      }
       //Compute relative distances (human / robot):
       //std::cout << "Human Torso x: " << torsoJointW.position.x << "y: " << torsoJointW.position.y << std::endl;
       // std::cout << "Robot Torso x: " << m_RobotLastConfig[robotTorso].position.x << "y: " <<  m_RobotLastConfig[robotTorso].position.y << std::endl;
@@ -521,46 +543,48 @@ int main(int argc, char** argv){
 	    wasClose=1;
 	    sendMessageOprs("add","distance CLOSE");
 	  }
-	  //We compute the hand to gripper distance in NEAR case.
-	  //Left gripper
-	  distLHandToGripper = dist3D(lHandJointW, robotLGripperJoint);
-	  distRHandToGripper = dist3D(rHandJointW, robotLGripperJoint);
-	  if( ((distLHandToGripper < 0.5) || (distRHandToGripper < 0.5))) {
-	    if (wasCloseToLeftGripper==0) {
-	      wasCloseToLeftGripper=1;
-	      sendMessageOprs("remove","handCloseToLeftGripper FALSE");
-	      sendMessageOprs("add","handCloseToLeftGripper TRUE");
-	      std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
-	    }
-	  }
-	  else {
-	    if (wasCloseToLeftGripper==1){ 
-	      wasCloseToLeftGripper=0;
-	      sendMessageOprs("remove","handCloseToLeftGripper TRUE");
-	      sendMessageOprs("add","handCloseToLeftGripper FALSE");
-	    }
-	  }
 
-	  //Right gripper
-	  distLHandToGripper = dist3D(lHandJointW, robotRGripperJoint);
-	  distRHandToGripper = dist3D(rHandJointW, robotRGripperJoint);
-	  if( ((distLHandToGripper < 0.6) || (distRHandToGripper < 0.6))){
-	    if (wasCloseToRightGripper==0) {
-	      wasCloseToRightGripper=1;
-	      sendMessageOprs("remove","handCloseToRightGripper FALSE");
-	      sendMessageOprs("add","handCloseToRightGripper TRUE");
-	      std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
+	  if(USE_MOCAP==0) {
+	    //We compute the hand to gripper distance in NEAR case.
+	    //Left gripper
+	    distLHandToGripper = dist3D(lHandJointW, robotLGripperJoint);
+	    distRHandToGripper = dist3D(rHandJointW, robotLGripperJoint);
+	    if( ((distLHandToGripper < 0.5) || (distRHandToGripper < 0.5))) {
+	      if (wasCloseToLeftGripper==0) {
+		wasCloseToLeftGripper=1;
+		sendMessageOprs("remove","handCloseToLeftGripper FALSE");
+		sendMessageOprs("add","handCloseToLeftGripper TRUE");
+		std::cout << "[Fact] Danger! Human hand is close to left gripper!" << std::endl;
+	      }
+	    }
+	    else {
+	      if (wasCloseToLeftGripper==1){ 
+		wasCloseToLeftGripper=0;
+		sendMessageOprs("remove","handCloseToLeftGripper TRUE");
+		sendMessageOprs("add","handCloseToLeftGripper FALSE");
+	      }
+	    }
+
+	    //Right gripper
+	    distLHandToGripper = dist3D(lHandJointW, robotRGripperJoint);
+	    distRHandToGripper = dist3D(rHandJointW, robotRGripperJoint);
+	    if( ((distLHandToGripper < 0.6) || (distRHandToGripper < 0.6))){
+	      if (wasCloseToRightGripper==0) {
+		wasCloseToRightGripper=1;
+		sendMessageOprs("remove","handCloseToRightGripper FALSE");
+		sendMessageOprs("add","handCloseToRightGripper TRUE");
+		std::cout << "[Fact] Danger! Human hand is close to right gripper!" << std::endl;
+	      }
+	    }
+	    else  {
+	      if (wasCloseToRightGripper==1){
+		wasCloseToRightGripper=0;
+		sendMessageOprs("remove","handCloseToRightGripper TRUE");
+		sendMessageOprs("add","handCloseToRightGripper FALSE");
+		std::cout<< "[Fact] Human hand is okay" << std::endl;
+	      }
 	    }
 	  }
-	  else  {
-	    if (wasCloseToRightGripper==1){
-	      wasCloseToRightGripper=0;
-	      sendMessageOprs("remove","handCloseToRightGripper TRUE");
-	      sendMessageOprs("add","handCloseToRightGripper FALSE");
-	      std::cout<< "[Fact] Human hand is okay" << std::endl;
-	    }
-	  }
-	 
 	}else {
 	  if (wasTooClose==0) {
 	    if (wasFar==1) {
