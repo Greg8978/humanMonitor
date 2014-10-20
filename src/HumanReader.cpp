@@ -5,6 +5,9 @@
 #include <math.h>
 #include <ostream>
 #include "humanMonitor/HumanReader.h"
+
+
+
 #define HumanReader_DEBUG 0
 
 HumanReader::HumanReader(ros::NodeHandle& node, bool USE_MOCAP): node_(node){
@@ -15,6 +18,9 @@ HumanReader::HumanReader(ros::NodeHandle& node, bool USE_MOCAP): node_(node){
 
   if(USE_MOCAP==false) {
     sub = node_.subscribe("/niut/Human", 1, &HumanReader::humanJointCallBack, this);
+  }
+  else {
+    sub = node_.subscribe("/optitrack_person/tracked_persons", 1, &HumanReader::optitrackCallback, this);
   }
   m_LastTime = 0;
 }
@@ -41,38 +47,53 @@ void HumanReader::humanJointCallBack(const humanMonitor::niut_HUMAN_LIST::ConstP
   if(HumanReader_DEBUG){
     std::cout << std::endl;
   }
+
 }
 
-void HumanReader::updateHuman(tf::TransformListener &listener) {
-  getHumanJointLocation(listener, 0, "person_1");
-}
-
-void HumanReader::getHumanJointLocation(tf::TransformListener &listener, int joint, std::string personId) {
-  //Miki: for now the parameter joint is ignored because we only use the head of the person with mocap
-  //for now this is implemented for just one agent (and probably doesn't work even in that case XD). Must be corrected
+void HumanReader::optitrackCallback(const spencer_tracking_msgs::TrackedPersons::ConstPtr& msg) {
   
-   tf::StampedTransform transform;
-   std::string transformId = "/";
-   transformId.append(personId);
-   try{
-     ros::Time now = ros::Time::now();
-     listener.waitForTransform("/map", transformId,
-			       now, ros::Duration(3.0));
-     listener.lookupTransform("/map", transformId,
+  tf::StampedTransform transform;
+  tf::Transformer transformer;
+  ros::Time now = ros::Time::now();
+  try {
+  listener.waitForTransform("/map", "/optitrack",
+			    now, ros::Duration(3.0));
+  listener.lookupTransform("/map", "/optitrack",
                               now, transform);
-     
-     m_LastConfig[0].joints[joint].position.x = transform.getOrigin().x();
-     m_LastConfig[0].joints[joint].position.y = transform.getOrigin().y();
-     m_LastConfig[0].joints[joint].position.z = transform.getOrigin().z();
-     
-     m_LastConfig[0].joints[joint].orientation=transform.getRotation();
 
-   }    
-   catch (tf::TransformException ex){
-     ROS_ERROR("%s",ex.what());
-   }
+  spencer_tracking_msgs::TrackedPerson person=msg->tracks[0];   
 
+  geometry_msgs::PoseStamped optitrackPose, mapPose;
+  optitrackPose.pose.position=person.pose.pose.position;
+  optitrackPose.pose.orientation=person.pose.pose.orientation;
+  optitrackPose.header.stamp=ros::Time::now();
+  optitrackPose.header.frame_id="/optitrack";
+
+
+  //  listener.setTransform(transform);
+  std::cout<<"transforming pose\n";
+  listener.transformPose("/map", optitrackPose,  mapPose);
+
+  std::cout<<"transformed pose\n";
+
+  m_LastConfig[0].joints[0].position.x = mapPose.pose.position.x;
+  m_LastConfig[0].joints[0].position.y = mapPose.pose.position.y;
+  m_LastConfig[0].joints[0].position.z = mapPose.pose.position.z;
+
+   // std::cout<<m_LastConfig[0].joints[0].position.x<<"\n";    
+   // std::cout<<m_LastConfig[0].joints[0].position.y<<"\n";
+   // std::cout<<m_LastConfig[0].joints[0].position.z<<"\n";
+
+ tf:quaternionMsgToTF(mapPose.pose.orientation,  m_LastConfig[0].joints[0].orientation);
+  }    
+  catch (tf::TransformException ex){
+    ROS_ERROR("%s",ex.what());
+  }
+  
 }
+
+     
+
 
 
 

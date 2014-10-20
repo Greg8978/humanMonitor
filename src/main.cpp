@@ -1,3 +1,4 @@
+
 #include <ros/ros.h>
 #include "humanMonitor/HumanReader.h"
 #include "tf/transform_listener.h"
@@ -226,9 +227,28 @@ bool isMoving(TRBuffer<Human > confBuffer,
 }
 
 bool isFacing(HumanJoint jointHuman, HumanJoint jointRobot, double angleThreshold){
+  
 	double humanAngle = tf::getYaw(jointHuman.orientation);
-	double humanRobotAngle = acosf( (jointHuman.position.x - jointRobot.position.x)/dist2D(jointHuman, jointRobot) );
-	double angleResult = fabs(humanAngle - humanRobotAngle);
+	//        humanAngle=(humanAngle+3.14)*360/6.28;
+	double humanRobotAngle = acos( (fabs(jointHuman.position.x - jointRobot.position.x))/dist2D(jointHuman, jointRobot) );
+	if (jointRobot.position.x<jointHuman.position.x) {
+	  humanRobotAngle=3.14-humanRobotAngle;
+}
+	if (jointRobot.position.y<jointHuman.position.y) {
+	  humanRobotAngle=-humanRobotAngle;	
+}
+        double angleResult = fabs(humanAngle - humanRobotAngle);
+	std::cout<<"joint positions\n";
+	std::cout<<jointHuman.position.x<<"\n";
+	std::cout<<jointHuman.position.y<<"\n";
+	std::cout<<jointRobot.position.x<<"\n";
+	std::cout<<jointRobot.position.y<<"\n";
+	std::cout<<"distance\n";
+	std::cout<<dist2D(jointHuman,jointRobot)<<"\n";
+	std::cout<<"angles\n";
+	std::cout<<"human angle "<<humanAngle<<"\n";
+	std::cout<<"human robot angle "<<humanRobotAngle<<"\n";
+	std::cout<<"angle result "<<angleResult<<"\n";
 	if( angleResult > angleThreshold ) {
 	  return false;
 	}
@@ -244,6 +264,7 @@ void sendMessageOprs(std::string command, std::string strMessage) {
   char dest[10]="OPRS_DB";
   char message[200];
   
+  
   std::stringstream completeString;
   
   completeString<<"(HumanMonitor.message "<<command<<" "<<stringMessageBase<<strMessage<<"))";
@@ -256,7 +277,7 @@ void sendMessageOprs(std::string command, std::string strMessage) {
   
 }
 int main(int argc, char** argv){
-  const bool USE_MOCAP=false;  //If false will use kinect, else will use mocap for user tracking
+  const bool USE_MOCAP=true;  //If false will use kinect, else will use mocap for user tracking
 
 
   ros::init(argc, argv, "humanMonitor");
@@ -328,13 +349,11 @@ int main(int argc, char** argv){
   while( node.ok() ){
     ros::spinOnce();
 
-    if(USE_MOCAP==true) {
-      humanRd.updateHuman(listener);  
-    }
+
 
     
     // For now we focus on human with trackedId = 0.
-    if(humanRd.isPresent()){
+    if(1==1){//humanRd.isPresent()){
       if (wasPresent==0) {
 	//	std::cout << "[Fact] Human is present!" << std::endl;
 	sendMessageOprs("remove", "agentPresent FALSE");
@@ -342,11 +361,16 @@ int main(int argc, char** argv){
 	wasPresent=1;
       }
       
+
       
 	//Get Human joints in kinect frame
       rHandJoint = humanRd.m_LastConfig[0].joints[niut_RIGHT_HAND];
       lHandJoint = humanRd.m_LastConfig[0].joints[niut_LEFT_HAND];
-      torsoJoint = humanRd.m_LastConfig[0].joints[niut_TORSO];
+      if (USE_MOCAP==false) {
+	torsoJoint = humanRd.m_LastConfig[0].joints[niut_TORSO]; }
+      else {
+	torsoJoint= humanRd.m_LastConfig[0].joints[niut_HEAD];      
+}
       rHipJoint= humanRd.m_LastConfig[0].joints[niut_RIGHT_HIP];
       if(USE_MOCAP==false) {   //Miki: we project only if using the Kinect
 	//Get joints in same frame
@@ -378,34 +402,35 @@ int main(int argc, char** argv){
       }
 
     
-      //We compute the distance from the hand of the human to its body
-      distHand = dist3D(rHipJointW, rHandJointW);
-      if(distHand>0.70) {
-	if (wasExtended==0) {
-	  wasExtended=1;  
-	  if (wasClose==1) {
-	    sendMessageOprs("remove", "armPosition CLOSE");
-	    wasClose=0;
-	  }
+      if (USE_MOCAP==false) {
+	//We compute the distance from the hand of the human to its body
+	distHand = dist3D(rHipJointW, rHandJointW);
+	if(distHand>0.70) {
+	  if (wasExtended==0) {
+	    wasExtended=1;  
+	    if (wasClose==1) {
+	      sendMessageOprs("remove", "armPosition CLOSE");
+	      wasClose=0;
+	    }
 	      
-	  sendMessageOprs("add","armPosition EXTENDED");
-	  //	  std::cout<< "[Fact] Human arm is extended" << std::endl;
-	}
-      }
-      else {
-	if (wasClose==0) {
-	  if (wasExtended==1) {
-	    wasExtended=0;
-	    sendMessageOprs("remove", "armPosition EXTENDED");
+	    sendMessageOprs("add","armPosition EXTENDED");
+	    //	  std::cout<< "[Fact] Human arm is extended" << std::endl;
 	  }
-	  wasClose=1;
-	  sendMessageOprs("add","armPosition CLOSE");
-	  //	  std::cout<< "[Fact] Human arm is not extended" << std::endl;
 	}
-      }
+	else {
+	  if (wasClose==0) {
+	    if (wasExtended==1) {
+	      wasExtended=0;
+	      sendMessageOprs("remove", "armPosition EXTENDED");
+	    }
+	    wasClose=1;
+	    sendMessageOprs("add","armPosition CLOSE");
+	    //	  std::cout<< "[Fact] Human arm is not extended" << std::endl;
+	  }
+	}
     
-	
-    
+      }	
+      
 	
 
 
@@ -432,6 +457,7 @@ int main(int argc, char** argv){
       }
       else
 	{
+	  
 	  if(wasMoving==1) {
 	    //	    std::cout << "[Fact] Human is not moving!" << std::endl;
 	    sendMessageOprs("remove","isMoving TRUE");
@@ -487,8 +513,10 @@ int main(int argc, char** argv){
 
 
       //Computer facing
-      if (USE_MOCAP==1) {
-	if (isFacing(torsoJointW, robotTorsoJoint, 30)){
+      if (USE_MOCAP==true) {
+	std::cout<<"i'm using mocap\n";
+	if (isFacing(torsoJointW, robotTorsoJoint, 0.5)){
+	  std::cout<<"i'm facing robot \n";
 	  if (wasFacingRobot==0) {
 	    wasFacingRobot=1;
 	    sendMessageOprs("remove","isFacing OTHER");
@@ -544,7 +572,7 @@ int main(int argc, char** argv){
 	    sendMessageOprs("add","distance CLOSE");
 	  }
 
-	  if(USE_MOCAP==0) {
+	  if(USE_MOCAP==false) {
 	    //We compute the hand to gripper distance in NEAR case.
 	    //Left gripper
 	    distLHandToGripper = dist3D(lHandJointW, robotLGripperJoint);
