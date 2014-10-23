@@ -9,6 +9,9 @@
 #include "humanMonitor/Human.h"
 
 
+//TO-DO:
+//make fact computation dependent on robot and mocap in a clean way. For now it's a pile of crap.
+
 
 
 // Robot config
@@ -17,6 +20,11 @@ static   Human m_HumanLastConfig;   //Miki: switched from map to the Human struc
 static   long m_RobotLastTime;
 static   TRBuffer< Human > m_HumanRBuffer(100);
 //static   TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STRx > > m_RobotRBuffer(100);
+static bool USE_MOCAP=true;  //if false will use kinect, else will use mocap for user tracking
+static bool MOCAP_HEAD=true;  //these two var determine which body parts we track with mocap
+static bool MOCAP_RHAND=false;
+static std::string robot="PR2";  //possible values PR2, SPENCER  
+
 
 void multiplyMatrices4x4(double* result,double* mat1, double* mat2){
 
@@ -163,7 +171,7 @@ double dist2D(HumanJoint joint1, HumanJoint joint2){
 
 
 
-void getPr2JointLocation(tf::TransformListener &listener, std::string joint){
+void getRobotJointLocation(tf::TransformListener &listener, std::string joint){
     tf::StampedTransform transform;
     std::string jointId = "/";
     jointId.append(joint);
@@ -186,10 +194,19 @@ void getPr2JointLocation(tf::TransformListener &listener, std::string joint){
     }
 }
 
+
+
 void updateRobot(tf::TransformListener &listener){
-   getPr2JointLocation(listener, "torso_lift_link");
-   getPr2JointLocation(listener, "r_gripper_l_finger_link");
-   getPr2JointLocation(listener, "l_gripper_l_finger_link");
+    if(robot=="PR2") {
+    getRobotJointLocation(listener, "torso_lift_link");
+    getRobotJointLocation(listener, "r_gripper_l_finger_link");
+    getRobotJointLocation(listener, "l_gripper_l_finger_link");
+    }
+    else if(robot=="SPENCER") {
+	getRobotJointLocation(listener, "torso_lift_link");
+    
+    }
+
  }
 
 
@@ -277,7 +294,7 @@ void sendMessageOprs(std::string command, std::string strMessage) {
   
 }
 int main(int argc, char** argv){
-  const bool USE_MOCAP=true;  //If false will use kinect, else will use mocap for user tracking
+
 
 
   ros::init(argc, argv, "humanMonitor");
