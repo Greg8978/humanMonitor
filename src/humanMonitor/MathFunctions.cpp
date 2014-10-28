@@ -50,17 +50,17 @@ bool MathFunctions::isFacing(AgentJoint agentJoint, tf::Point point, double angl
 	  humanRobotAngle=-humanRobotAngle;	
 }
         double angleResult = fabs(humanAngle - humanRobotAngle);
-	std::cout<<"joint positions\n";
-	std::cout<<agentJoint.position.getX()<<"\n";
-	std::cout<<agentJoint.position.getY()<<"\n";
-	std::cout<<point.getX()<<"\n";
-	std::cout<<point.getY()<<"\n";
-	std::cout<<"distance\n";
-	std::cout<<MathFunctions::dist2D(agentJoint.position,point)<<"\n";
-	std::cout<<"angles\n";
-	std::cout<<"human angle "<<humanAngle<<"\n";
-	std::cout<<"human robot angle "<<humanRobotAngle<<"\n";
-	std::cout<<"angle result "<<angleResult<<"\n";
+	// std::cout<<"joint positions\n";
+	// std::cout<<agentJoint.position.getX()<<"\n";
+	// std::cout<<agentJoint.position.getY()<<"\n";
+	// std::cout<<point.getX()<<"\n";
+	// std::cout<<point.getY()<<"\n";
+	// std::cout<<"distance\n";
+	// std::cout<<MathFunctions::dist2D(agentJoint.position,point)<<"\n";
+	// std::cout<<"angles\n";
+	// std::cout<<"human angle "<<humanAngle<<"\n";
+	// std::cout<<"human robot angle "<<humanRobotAngle<<"\n";
+	//	std::cout<<"angle result "<<angleResult<<"\n";
 	if( angleResult > angleThreshold ) {
 	  return false;
 	}

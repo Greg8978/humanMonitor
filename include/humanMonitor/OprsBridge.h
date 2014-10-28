@@ -12,16 +12,17 @@ using namespace std;
 class OprsBridge {
 
  public :
+  OprsBridge(string robot);
     void connect(string name);
-    void updateSupervisor(string message, int i, string newMessage, string oldMessage);
-    void updateSupervisor(string message, int i, bool newMessage, bool oldMessage);
-    
+    void updateSupervisor(string message, int i, string newValue, string oldValue);
+    void updateSupervisor(string message, int i, bool newValue, bool oldValue);
+    void sendMessageOprs(std::string command, std::string agent, std::string strMessage, string value);
+
 
     
  private:
-    void sendMessageOprs(std::string command, std::string agent, std::string strMessage);
     
-
+    string robot_;
     int mp_socket;
 };
 

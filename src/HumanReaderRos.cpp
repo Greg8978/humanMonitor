@@ -16,6 +16,7 @@ HumanReaderRos::HumanReaderRos(ros::NodeHandle& node, bool trackHead, bool track
     m_LastTime = 0;
     this->trackHead=trackHead;
     this->trackRHand=trackRHand;
+    std::cout<< "Done\n";
 }
 
 
@@ -25,6 +26,7 @@ void HumanReaderRos::optitrackCallback(const spencer_tracking_msgs::TrackedPerso
     tf::Transformer transformer;
     ros::Time now = ros::Time::now();
 
+    //    std::cout<<"In callback\n";
     for (map<int, bool>::iterator i=presentAgents.begin(); i!=presentAgents.end(); i++) {
 	i->second=false;
     }
@@ -46,10 +48,10 @@ void HumanReaderRos::optitrackCallback(const spencer_tracking_msgs::TrackedPerso
 
 
 	    //  listener.setTransform(transform);
-	    std::cout<<"transforming pose\n";
+	    //	    std::cout<<"transforming pose\n";
 	    listener.transformPose("/map", optitrackPose,  mapPose);
 
-	    std::cout<<"transformed pose\n";
+	    //	    std::cout<<"transformed pose\n";
 
 	    m_LastConfig[person.track_id].joints[HEAD].position.setX(mapPose.pose.position.x);
 	    m_LastConfig[person.track_id].joints[HEAD].position.setY(mapPose.pose.position.y);

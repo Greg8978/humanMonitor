@@ -1,12 +1,15 @@
 #include "humanMonitor/OprsBridge.h"
 
+OprsBridge::OprsBridge(string robot) {
+  robot_=robot;
+}
 void OprsBridge::connect(string name) {
     mp_socket=external_register_to_the_mp_prot(name.c_str(), 3300, STRINGS_PT); //oprs stuff
-    
+
 }
 
-void OprsBridge::sendMessageOprs(std::string command, std::string agent, std::string strMessage)  {
-    std::string stringMessageBase="(AGENT-STATEMENT PR2_ROBOT ";
+void OprsBridge::sendMessageOprs(std::string command, std::string agent, std::string strMessage, string value)  {
+    std::string stringMessageBase="(AGENT-STATEMENT ";
 	
     char dest[10]="OPRS_DB";
     char message[200];
@@ -14,7 +17,7 @@ void OprsBridge::sendMessageOprs(std::string command, std::string agent, std::st
   
     std::stringstream completeString;
   
-    completeString<<"(HumanMonitor.message "<<command<<" "<<stringMessageBase<<agent<<" "<<strMessage<<"))";
+    completeString<<"(HumanMonitor.message "<<command<<" "<<stringMessageBase<<robot_<<" "<<agent<<" "<<strMessage<<" "<<value<<"))";
   
     //  ROS_INFO("%s",completeString.str().c_str()); 
     
@@ -23,26 +26,26 @@ void OprsBridge::sendMessageOprs(std::string command, std::string agent, std::st
     send_message_string(message,dest);
 }
 
-void OprsBridge::updateSupervisor(string message, int i, string newMessage, string oldMessage) {
+void OprsBridge::updateSupervisor(string message, int i, string newValue, string oldValue) {
     std::stringstream convert;
     convert<<i;
     string agent=convert.str();
-    if (oldMessage.size()>0) {
-	sendMessageOprs("remove",agent,oldMessage);
+    if (oldValue.size()>0) {
+      sendMessageOprs("remove",agent,message,oldValue);
     }
-    sendMessageOprs("add",agent, newMessage);
+    sendMessageOprs("add",agent, message,newValue);
 }
 
-void OprsBridge::updateSupervisor(string message, int i, bool newMessage, bool oldMessage) {
+void OprsBridge::updateSupervisor(string message, int i, bool newValue, bool oldValue) {
     std::stringstream convert;
     string convertedNM, convertedOM;
-    if (newMessage==true) {
+    if (newValue==true) {
 	convertedNM="TRUE";
     }
     else {
 	convertedNM="FALSE";
     }
-    if (oldMessage==true) {
+    if (oldValue==true) {
 	convertedOM="TRUE";
     }
     else {
@@ -50,6 +53,6 @@ void OprsBridge::updateSupervisor(string message, int i, bool newMessage, bool o
     }
     convert<<i;
     string agent=convert.str();
-    sendMessageOprs("remove",agent,convertedOM);
-    sendMessageOprs("add",agent, convertedNM);
+    sendMessageOprs("remove",agent,message, convertedOM);
+    sendMessageOprs("add",agent, message, convertedNM);
 }

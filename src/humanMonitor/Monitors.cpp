@@ -48,15 +48,15 @@ map<string,bool> Monitors::computeHandDistance(Agent m_agentsLastConfig, Agent m
 }
 
 
-string Monitors::computeDistance(Agent m_agentsLastConfig, Agent m_robotLastConfig, string joint) {
+string Monitors::computeDistance(Agent m_agentsLastConfig, Agent m_robotLastConfig, string joint, double *distanceValue) {
     string result;
-    
+    double distBodies=-1;
     tf::Point robotTorso= m_robotLastConfig.joints[TORSO].position;
   
     tf::Point agentTorso= m_agentsLastConfig.joints[joint].position;
 	
     if(agentTorso.getX() != 0.0){
-	    double distBodies = MathFunctions::dist2D(agentTorso, robotTorso);
+	    distBodies = MathFunctions::dist2D(agentTorso, robotTorso);
 	    //	 std::cout << "Dist human robot: " << distBodies << std::endl;
 
 	    if( (distBodies > far) ){
@@ -72,7 +72,8 @@ string Monitors::computeDistance(Agent m_agentsLastConfig, Agent m_robotLastConf
 	    result="UNKNOWN";
 	    std::cout << "Human Torso not available " << std::endl;
 	}
-	return result;
+    *distanceValue=distBodies;
+    return result;
 }
 
 string Monitors::computeAgentPose(Agent m_agentsLastConfig) {

@@ -10,6 +10,7 @@
 #include "humanMonitor/Agent.h"
 #include "humanMonitor/OprsBridge.h"
 #include "humanMonitor/Monitors.h"
+#include <sstream>
 
 // Agent config
 static Agent  m_RobotLastConfig;
@@ -19,7 +20,7 @@ static  map<int, TRBuffer< Agent > > m_HumanRBuffer;
 std::string robotTorso = "torso_lift_link";
 std::string robotLGripper = "l_gripper_l_finger_link";
 std::string robotRGripper = "r_gripper_l_finger_link";
-static std::string robot="SPENCER";  //possible values PR2, SPENCER  
+static std::string robot="SPENCER_ROBOT";  //possible values PR2, SPENCER  
 
 //static   TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STRx > > m_RobotRBuffer(100);
 
@@ -66,12 +67,12 @@ void getRobotJointLocation(tf::TransformListener &listener, std::string joint){
 
 
 void updateRobot(tf::TransformListener &listener){
-    if(robot=="PR2") {
+    if(robot=="PR2_ROBOT") {
 	getRobotJointLocation(listener, "torso_lift_link");
 	getRobotJointLocation(listener, "r_gripper_l_finger_link");
 	getRobotJointLocation(listener, "l_gripper_l_finger_link");
     }
-    else if(robot=="SPENCER") {
+    else if(robot=="SPENCER_ROBOT") {
 	getRobotJointLocation(listener, "torso_lift_link");
     
     }
@@ -85,20 +86,22 @@ void updateRobot(tf::TransformListener &listener){
 
 
 int main(int argc, char** argv){
-    OprsBridge oprsBridge;    
+  OprsBridge oprsBridge(robot);    
 
     //monitor variables
     Monitors monitors;
 
-    vector<bool> wasMoving;
-    vector<bool> wasMovingRightHand;
-    vector<bool> wasMovingLeftHand;
-    vector<bool>  wasPresent;
-    vector<map <string,bool> > previousHandDistances;
+    map<int,bool> wasMoving;
+    map<int,bool> wasMovingRightHand;
+    map<int,bool> wasMovingLeftHand;
+    map<int,bool>  wasPresent;
+    map<int, map <string,bool> >  previousHandDistances;
 
-    vector<string> previousFacing;
-    vector<string> previousDistance;
-    vector<string> previousPose;
+    map<int,string> previousFacing;
+    map<int,string> previousDistance;
+    map<int,string> previousPose;
+    int closestAgent=-10;
+
 
     
     //ros stuff
@@ -135,21 +138,25 @@ int main(int argc, char** argv){
 	kinectPos[5] = -1.57;
 
 
-
+	oprsBridge.connect("HumanMonitor");
 
 	while( node.ok() ){
 	    ros::spinOnce();
 
-
+	    double minDistance=1000;
+	    double minAgent=-10;
 	    updateRobot(listener);
-      
+	    //	    ROS_INFO("Updated Robot");
+	    //ROS_INFO("Number of Agents: %d",humanRd.m_LastConfig.size());
 	    for(map<int,Agent>::iterator currentAgent=humanRd.m_LastConfig.begin(); currentAgent!=humanRd.m_LastConfig.end(); currentAgent++) {
 
-	
+
 		int i=currentAgent->first;
 		bool isPresent=humanRd.isPresent(i);
 		if (isPresent!=wasPresent[i]) {
+		  cout<<"Agent "<<i<<" isPresent "<<isPresent<<"\n";
 		    oprsBridge.updateSupervisor("isPresent", i, isPresent, wasPresent[i]);
+		    wasPresent[i]=isPresent;
 		}
 		if (isPresent) {
 		
@@ -190,10 +197,11 @@ int main(int argc, char** argv){
 
 		if (trackHead || trackTorso) {
 
-		    bool isMoving=monitors.computeMotion(m_HumanRBuffer[i], centralJoint);
-		if (isMoving!=wasMoving[i]) {
+		  bool isMoving=monitors.computeMotion(m_HumanRBuffer[i], centralJoint);
+		  if (isMoving!=wasMoving[i]) {
 		    oprsBridge.updateSupervisor("isMoving", i, isMoving, wasMoving[i]);
-		}
+		    std::cout<<"isMoving "<<i<<" "<<isMoving<<"\n";
+		  }
 		wasMoving[i]=isMoving;
 
 		bool isFacingRobot=monitors.computeOrientationToRobot(m_HumanLastConfig[i],  m_RobotLastConfig, centralJoint);
@@ -205,35 +213,52 @@ int main(int argc, char** argv){
 			isFacing="OTHER";
 		    }
 		if (isFacing!=previousFacing[i]) {
-		    oprsBridge.updateSupervisor("isFacing", i, isFacing, previousFacing[i]);
+		  std::cout<<"isFacing "<<i<<" "<<isFacing<<"\n";
+		  oprsBridge.updateSupervisor("isFacing", i, isFacing, previousFacing[i]);
 		}
 		previousFacing[i]=isFacing;
 		
-		string distance=monitors.computeDistance(m_HumanLastConfig[i], m_RobotLastConfig, centralJoint);
+		double distValue;
+		string distance=monitors.computeDistance(m_HumanLastConfig[i], m_RobotLastConfig, centralJoint, &distValue);
 		if (distance!=previousDistance[i]) {
-		    oprsBridge.updateSupervisor("distance", i, distance,  previousDistance[i]);
+		  std::cout<<"distance "<<i<<" "<<distance<<"\n";
+		  oprsBridge.updateSupervisor("distance", i, distance,  previousDistance[i]);
 		}
 		previousDistance[i]=distance;
+
+		if (distValue<minDistance) {
+		  minAgent=i;
+		}
+		
+
+		
+
 
 
 
 		map<string,bool> handDistances;
 		if (distance=="CLOSE" && trackRightHand && trackLeftHand) {
+
 		    handDistances=monitors.computeHandDistance( m_HumanLastConfig[i],  m_RobotLastConfig);
 		}
 		else {
 		    handDistances["LEFT"]=false;
 		    handDistances["RIGHT"]=false;
 		}
+
 		if (handDistances["LEFT"]!=previousHandDistances[i]["LEFT"]) {
+
 		    oprsBridge.updateSupervisor("closeToLeftGripper", i, handDistances["LEFT"], previousHandDistances[i]["LEFT"]);
 		}
+
 		if (handDistances["RIGHT"]!=previousHandDistances[i]["RIGHT"]) {
+
 		    oprsBridge.updateSupervisor("closeToRightGripper", i, handDistances["RIGHT"],  previousHandDistances[i]["RIGHT"]);
 		}
+
 		previousHandDistances[i]["LEFT"]=handDistances["LEFT"];
 		previousHandDistances[i]["RIGHT"]=handDistances["RIGHT"];
-		
+
 		}
 		if (trackRightHand) {
 		    string pose=monitors.computeAgentPose(m_HumanLastConfig[i]);
@@ -243,6 +268,17 @@ int main(int argc, char** argv){
 		    
 		    previousPose[i]=pose;	
 		}
+	    }
+	   
+	    if (minAgent!=closestAgent) {
+	      std::stringstream ss;
+	      ss<<minAgent;
+	      oprsBridge.sendMessageOprs("add",robot,"isClosestTo",ss.str());
+	      ss.str("");
+	      ss<<closestAgent;
+	      oprsBridge.sendMessageOprs("remove",robot,"isClosestTo",ss.str());
+		closestAgent=minAgent;
+	      std::cout<<"closestAgent"<<closestAgent<<"\n";
 	    }
 	}
 }
