@@ -100,6 +100,8 @@ int main(int argc, char** argv){
     map<int,string> previousFacing;
     map<int,string> previousDistance;
     map<int,string> previousPose;
+    map<int,AgentJoint> previousHumanPosition;
+
     int closestAgent=-10;
 
 
@@ -231,6 +233,30 @@ int main(int argc, char** argv){
 		}
 		
 
+		//send position of the agent to the supervisor HACK this should be redone because the supervisor shouldn't have geometric information
+
+		AgentJoint humanPosition=m_HumanLastConfig[i].joints[HEAD];
+		if (humanPosition.position.getX()!=previousHumanPosition[i].position.getX() && humanPosition.position.getY()!=previousHumanPosition[i].position.getY() && humanPosition.position.getZ()!=previousHumanPosition[i].position.getZ() ) {
+		    std::stringstream convertHumanPosition;
+
+		    double oldX=previousHumanPosition[i].position.getX();
+		    double oldY=previousHumanPosition[i].position.getY();
+		    double oldZ=previousHumanPosition[i].position.getZ();
+		    
+		    convertHumanPosition<<"(. "<<oldX<<" "<<oldY<<" "<<oldZ<<".)";
+		    string oldMessage=convertHumanPosition.str();
+		    
+		    convertHumanPosition.str("");
+
+		    double x=m_HumanLastConfig[i].joints[HEAD].position.getX();
+		    double y=m_HumanLastConfig[i].joints[HEAD].position.getY();
+		    double z=m_HumanLastConfig[i].joints[HEAD].position.getZ();		
+		    convertHumanPosition<<"(. "<<x<<" "<<y<<" "<<z<<".)";
+		    string newMessage=convertHumanPosition.str();
+		    
+		    oprsBridge.updateSupervisor("hasLocation", i, newMessage, oldMessage);
+		    previousHumanPosition[i]=humanPosition;		
+		}
 		
 
 
