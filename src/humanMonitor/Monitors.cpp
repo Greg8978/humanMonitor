@@ -52,9 +52,14 @@ string Monitors::computeDistance(Agent m_agentsLastConfig, Agent m_robotLastConf
     string result;
     double distBodies=-1;
     tf::Point robotTorso= m_robotLastConfig.joints[TORSO].position;
-  
+
+       
+
     tf::Point agentTorso= m_agentsLastConfig.joints[joint].position;
-	
+ 
+
+    std::cout<<"Robot position "<<robotTorso.getX()<<" "<<robotTorso.getY()<<" "<<robotTorso.getZ()<<"\n";
+    std::cout<<"Human position "<<agentTorso.getX()<<" "<<agentTorso.getY()<<" "<<agentTorso.getZ()<<"\n";
     if(agentTorso.getX() != 0.0){
 	    distBodies = MathFunctions::dist2D(agentTorso, robotTorso);
 	    //	 std::cout << "Dist human robot: " << distBodies << std::endl;

@@ -11,6 +11,7 @@
 #include "humanMonitor/OprsBridge.h"
 #include "humanMonitor/Monitors.h"
 #include <sstream>
+#include <stdlib.h>
 
 // Agent config
 static Agent  m_RobotLastConfig;
@@ -20,7 +21,8 @@ static  map<int, TRBuffer< Agent > > m_HumanRBuffer;
 std::string robotTorso = "torso_lift_link";
 std::string robotLGripper = "l_gripper_l_finger_link";
 std::string robotRGripper = "r_gripper_l_finger_link";
-static std::string robot="SPENCER_ROBOT";  //possible values PR2, SPENCER  
+map<string,string> robotJointMapping;
+static std::string robot="PR2_ROBOT";  //possible values PR2, SPENCER  
 
 //static   TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STRx > > m_RobotRBuffer(100);
 
@@ -41,10 +43,10 @@ static string topic="/optitrack_person/tracked_persons";
 
 
 
-void getRobotJointLocation(tf::TransformListener &listener, std::string joint){
+void getRobotJointLocation(tf::TransformListener &listener, std::string jointId){
     tf::StampedTransform transform;
-    std::string jointId = "/";
-    jointId.append(joint);
+
+    string joint=robotJointMapping[jointId];
     try{
         ros::Time now = ros::Time::now();
         listener.waitForTransform("/map", jointId,
@@ -104,6 +106,8 @@ int main(int argc, char** argv){
 
     int closestAgent=-10;
 
+    robotJointMapping[robotTorso]=TORSO;
+
 
     
     //ros stuff
@@ -148,10 +152,10 @@ int main(int argc, char** argv){
 	    double minDistance=1000;
 	    double minAgent=-10;
 	    updateRobot(listener);
-	    //	    ROS_INFO("Updated Robot");
+	    //	     ROS_INFO("Updated Robot");
 	    //ROS_INFO("Number of Agents: %d",humanRd.m_LastConfig.size());
 	    for(map<int,Agent>::iterator currentAgent=humanRd.m_LastConfig.begin(); currentAgent!=humanRd.m_LastConfig.end(); currentAgent++) {
-
+	      ROS_INFO("Have agents");
 
 		int i=currentAgent->first;
 		bool isPresent=humanRd.isPresent(i);
@@ -229,6 +233,7 @@ int main(int argc, char** argv){
 		previousDistance[i]=distance;
 
 		if (distValue<minDistance) {
+		  cout<<"distance is "<<distValue<<"\n";
 		  minAgent=i;
 		}
 		
@@ -236,14 +241,14 @@ int main(int argc, char** argv){
 		//send position of the agent to the supervisor HACK this should be redone because the supervisor shouldn't have geometric information
 
 		AgentJoint humanPosition=m_HumanLastConfig[i].joints[HEAD];
-		if (humanPosition.position.getX()!=previousHumanPosition[i].position.getX() && humanPosition.position.getY()!=previousHumanPosition[i].position.getY() && humanPosition.position.getZ()!=previousHumanPosition[i].position.getZ() ) {
+		if (abs(humanPosition.position.getX()-previousHumanPosition[i].position.getX())>0.2 && abs(humanPosition.position.getY()!=previousHumanPosition[i].position.getY())>0.2 && abs(humanPosition.position.getZ()!=previousHumanPosition[i].position.getZ())>0.2 ) {
 		    std::stringstream convertHumanPosition;
 
 		    double oldX=previousHumanPosition[i].position.getX();
 		    double oldY=previousHumanPosition[i].position.getY();
 		    double oldZ=previousHumanPosition[i].position.getZ();
 		    
-		    convertHumanPosition<<"(. "<<oldX<<" "<<oldY<<" "<<oldZ<<".)";
+		    convertHumanPosition<<"(. "<<oldX<<" "<<oldY<<" "<<oldZ<<" .)";
 		    string oldMessage=convertHumanPosition.str();
 		    
 		    convertHumanPosition.str("");
@@ -251,9 +256,10 @@ int main(int argc, char** argv){
 		    double x=m_HumanLastConfig[i].joints[HEAD].position.getX();
 		    double y=m_HumanLastConfig[i].joints[HEAD].position.getY();
 		    double z=m_HumanLastConfig[i].joints[HEAD].position.getZ();		
-		    convertHumanPosition<<"(. "<<x<<" "<<y<<" "<<z<<".)";
+		    convertHumanPosition<<"(. "<<x<<" "<<y<<" "<<z<<" .)";
 		    string newMessage=convertHumanPosition.str();
 		    
+		    std::cout<<"Location "<<x<<" "<<y<<" "<<z<<"\n";
 		    oprsBridge.updateSupervisor("hasLocation", i, newMessage, oldMessage);
 		    previousHumanPosition[i]=humanPosition;		
 		}
