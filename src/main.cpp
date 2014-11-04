@@ -21,8 +21,11 @@ static  map<int, TRBuffer< Agent > > m_HumanRBuffer;
 std::string robotTorso = "torso_lift_link";
 std::string robotLGripper = "l_gripper_l_finger_link";
 std::string robotRGripper = "r_gripper_l_finger_link";
+std::string robotBase = "base_link";
+
+
 map<string,string> robotJointMapping;
-static std::string robot="PR2_ROBOT";  //possible values PR2, SPENCER  
+static std::string robot="SPENCER_ROBOT";  //possible values PR2, SPENCER  
 
 //static   TRBuffer< std::map< std::string, humanMonitor::niut_JOINT_STRx > > m_RobotRBuffer(100);
 
@@ -36,10 +39,10 @@ static bool trackTorso=false;
 //system uses
 static bool USE_KINECT=false;
 static bool USE_ROS=true;
-
+static bool USE_MOCAP=true;
 
 //ros config
-static string topic="/optitrack_person/tracked_persons";
+static string topic="/spencer/perception/tracked_persons_moving/";//optitrack_person/tracked_persons";
 
 
 
@@ -48,6 +51,7 @@ void getRobotJointLocation(tf::TransformListener &listener, std::string jointId)
 
     string joint=robotJointMapping[jointId];
     try{
+      if (USE_MOCAP || USE_KINECT) {
         ros::Time now = ros::Time::now();
         listener.waitForTransform("/map", jointId,
 				  now, ros::Duration(3.0));
@@ -59,7 +63,12 @@ void getRobotJointLocation(tf::TransformListener &listener, std::string jointId)
 	m_RobotLastConfig.joints[joint].position.setZ(transform.getOrigin().z());
         // We put these in a ring buffer:
         //m_RobotRBufffer.push_back(m_RobotLastTime, m_RobotLastConfig);
-
+      }
+      else {
+	m_RobotLastConfig.joints[joint].position.setX(0);
+	m_RobotLastConfig.joints[joint].position.setY(0);
+	m_RobotLastConfig.joints[joint].position.setZ(0);
+      }
     }    
     catch (tf::TransformException ex){
         ROS_ERROR("%s",ex.what());
@@ -75,7 +84,7 @@ void updateRobot(tf::TransformListener &listener){
 	getRobotJointLocation(listener, "l_gripper_l_finger_link");
     }
     else if(robot=="SPENCER_ROBOT") {
-	getRobotJointLocation(listener, "torso_lift_link");
+	getRobotJointLocation(listener, "base_link");
     
     }
 
@@ -107,8 +116,8 @@ int main(int argc, char** argv){
     int closestAgent=-10;
 
     robotJointMapping[robotTorso]=TORSO;
-
-
+    robotJointMapping[robotBase]=TORSO;
+    bool first=true;
     
     //ros stuff
     ros::init(argc, argv, "humanMonitor");
@@ -155,7 +164,7 @@ int main(int argc, char** argv){
 	    //	     ROS_INFO("Updated Robot");
 	    //ROS_INFO("Number of Agents: %d",humanRd.m_LastConfig.size());
 	    for(map<int,Agent>::iterator currentAgent=humanRd.m_LastConfig.begin(); currentAgent!=humanRd.m_LastConfig.end(); currentAgent++) {
-	      ROS_INFO("Have agents");
+	     //ROS_INFO("Have agents");
 
 		int i=currentAgent->first;
 		bool isPresent=humanRd.isPresent(i);
@@ -203,26 +212,26 @@ int main(int argc, char** argv){
 
 		if (trackHead || trackTorso) {
 
-		  bool isMoving=monitors.computeMotion(m_HumanRBuffer[i], centralJoint);
-		  if (isMoving!=wasMoving[i]) {
-		    oprsBridge.updateSupervisor("isMoving", i, isMoving, wasMoving[i]);
-		    std::cout<<"isMoving "<<i<<" "<<isMoving<<"\n";
-		  }
-		wasMoving[i]=isMoving;
+	//	  bool isMoving=monitors.computeMotion(m_HumanRBuffer[i], centralJoint);
+	//	  if (isMoving!=wasMoving[i]) {
+	//	    oprsBridge.updateSupervisor("isMoving", i, isMoving, wasMoving[i]);
+	//	    std::cout<<"isMoving "<<i<<" "<<isMoving<<"\n";
+	//	  }
+	//	wasMoving[i]=isMoving;
 
-		bool isFacingRobot=monitors.computeOrientationToRobot(m_HumanLastConfig[i],  m_RobotLastConfig, centralJoint);
-		string isFacing;
-		if (isFacingRobot) {
-		    isFacing="PR2";
-		}
-		    else {
-			isFacing="OTHER";
-		    }
-		if (isFacing!=previousFacing[i]) {
-		  std::cout<<"isFacing "<<i<<" "<<isFacing<<"\n";
-		  oprsBridge.updateSupervisor("isFacing", i, isFacing, previousFacing[i]);
-		}
-		previousFacing[i]=isFacing;
+	//	bool isFacingRobot=monitors.computeOrientationToRobot(m_HumanLastConfig[i],  m_RobotLastConfig, centralJoint);
+	//	string isFacing;
+	//	if (isFacingRobot) {
+	//	    isFacing="PR2";
+	//	}
+	//	    else {
+	//		isFacing="OTHER";
+	//	    }
+	//	if (isFacing!=previousFacing[i]) {
+	//	  std::cout<<"isFacing "<<i<<" "<<isFacing<<"\n";
+	//	  oprsBridge.updateSupervisor("isFacing", i, isFacing, previousFacing[i]);
+	//	}
+	//	previousFacing[i]=isFacing;
 		
 		double distValue;
 		string distance=monitors.computeDistance(m_HumanLastConfig[i], m_RobotLastConfig, centralJoint, &distValue);
@@ -233,16 +242,23 @@ int main(int argc, char** argv){
 		previousDistance[i]=distance;
 
 		if (distValue<minDistance) {
-		  cout<<"distance is "<<distValue<<"\n";
+		 // cout<<"distance is "<<distValue<<"\n";
 		  minAgent=i;
+                  minDistance=distValue;
 		}
 		
 
 		//send position of the agent to the supervisor HACK this should be redone because the supervisor shouldn't have geometric information
 
 		AgentJoint humanPosition=m_HumanLastConfig[i].joints[HEAD];
-		if (abs(humanPosition.position.getX()-previousHumanPosition[i].position.getX())>0.2 && abs(humanPosition.position.getY()!=previousHumanPosition[i].position.getY())>0.2 && abs(humanPosition.position.getZ()!=previousHumanPosition[i].position.getZ())>0.2 ) {
+		double d1=abs(humanPosition.position.getX()-previousHumanPosition[i].position.getX());
+		double d2=abs(humanPosition.position.getY()-previousHumanPosition[i].position.getY());
+		// std::cout<<"difference in position is \n";
+		// std::cout<<d1<<"\n"; 
+		// std::cout<<d2<<"\n"; 
+		if (d1>0.2 || d2>0.2) {
 		    std::stringstream convertHumanPosition;
+
 
 		    double oldX=previousHumanPosition[i].position.getX();
 		    double oldY=previousHumanPosition[i].position.getY();

@@ -25,34 +25,48 @@ void HumanReaderRos::optitrackCallback(const spencer_tracking_msgs::TrackedPerso
     tf::StampedTransform transform;
     tf::Transformer transformer;
     ros::Time now = ros::Time::now();
-
+    
+    bool USE_OPTITRACK_=true;
+    string frame;
+	
     //    std::cout<<"In callback\n";
     for (map<int, bool>::iterator i=presentAgents.begin(); i!=presentAgents.end(); i++) {
 	i->second=false;
     }
     try {
-	listener.waitForTransform("/map", "/optitrack",
-				  now, ros::Duration(3.0));
-	listener.lookupTransform("/map", "/optitrack",
-				 now, transform);
-	for (int i=0; i<msg->tracks.size(); i++) {
+      if (USE_OPTITRACK_) {
+	frame=msg->header.frame_id;
+	
+	listener.waitForTransform("/map", frame,
+				  msg->header.stamp, ros::Duration(3.0));
+	listener.lookupTransform("/map", frame,
+				 msg->header.stamp, transform);
+      }
+
+      for (int i=0; i<msg->tracks.size(); i++) {
 	    spencer_tracking_msgs::TrackedPerson person=msg->tracks[i];   
 
 	    presentAgents[person.track_id]=true;
-	    
 	    geometry_msgs::PoseStamped optitrackPose, mapPose;
 	    optitrackPose.pose.position=person.pose.pose.position;
 	    optitrackPose.pose.orientation=person.pose.pose.orientation;
-	    optitrackPose.header.stamp=ros::Time::now();
-	    optitrackPose.header.frame_id="/optitrack";
+	    optitrackPose.header.stamp=msg->header.stamp;
+	    optitrackPose.header.frame_id=frame;
 
+	    //	    std::cout<<person.pose.pose.position.x<<"\n";
+	    if (USE_OPTITRACK_) {
+	      //	      std::cout<<transform.getOrigin().x()<<"\n";
+	      //std::cout<<transform.getOrigin().y()<<"\n";
+	      //std::cout<<transform.getOrigin().z()<<"\n";
+	      // std::cout<<transform.getRotation().getAngle()<<"\n";
 
-	    //  listener.setTransform(transform);
-	    //	    std::cout<<"transforming pose\n";
-	    listener.transformPose("/map", optitrackPose,  mapPose);
+	      //listener.setTransform(transform);
+	      //	    std::cout<<"transforming pose\n";
+	      listener.transformPose("/map", optitrackPose,  mapPose);
 
-	    //	    std::cout<<"transformed pose\n";
+	      //	    std::cout<<"transformed pose\n";
 
+	      //     std::cout<<mapPose.pose.position.x<<"\n";
 	    m_LastConfig[person.track_id].joints[HEAD].position.setX(mapPose.pose.position.x);
 	    m_LastConfig[person.track_id].joints[HEAD].position.setY(mapPose.pose.position.y);
 	    m_LastConfig[person.track_id].joints[HEAD].position.setZ(mapPose.pose.position.z);
@@ -61,7 +75,15 @@ void HumanReaderRos::optitrackCallback(const spencer_tracking_msgs::TrackedPerso
 	    // std::cout<<m_LastConfig[0].joints[0].position.y<<"\n";
 	    // std::cout<<m_LastConfig[0].joints[0].position.z<<"\n";
 	
-	tf:quaternionMsgToTF(mapPose.pose.orientation,  m_LastConfig[person.track_id].joints[HEAD].orientation);
+	    	tf:quaternionMsgToTF(mapPose.pose.orientation,  m_LastConfig[person.track_id].joints[HEAD].orientation);
+	    }
+	    else {
+	      m_LastConfig[person.track_id].joints[HEAD].position.setX(optitrackPose.pose.position.x);
+	      m_LastConfig[person.track_id].joints[HEAD].position.setY(optitrackPose.pose.position.y);
+	      m_LastConfig[person.track_id].joints[HEAD].position.setZ(optitrackPose.pose.position.z);
+	      tf::quaternionMsgToTF(optitrackPose.pose.orientation, m_LastConfig[person.track_id].joints[HEAD].orientation);
+	   
+	    }
 	}
     }catch (tf::TransformException ex){
 	ROS_ERROR("%s",ex.what());

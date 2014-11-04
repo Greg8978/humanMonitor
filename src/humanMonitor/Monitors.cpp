@@ -3,8 +3,10 @@
 
 
 Monitors::Monitors() {
-    far=2.5;
-    close=1.3;
+  //    far=2.5;
+  //close=1.3;
+  close=0.5;
+  far=1.5;
     distLHandToGripper=0.7;
     distRHandToGripper=0.7;
     distHandExtended=0.7;
@@ -58,8 +60,8 @@ string Monitors::computeDistance(Agent m_agentsLastConfig, Agent m_robotLastConf
     tf::Point agentTorso= m_agentsLastConfig.joints[joint].position;
  
 
-    std::cout<<"Robot position "<<robotTorso.getX()<<" "<<robotTorso.getY()<<" "<<robotTorso.getZ()<<"\n";
-    std::cout<<"Human position "<<agentTorso.getX()<<" "<<agentTorso.getY()<<" "<<agentTorso.getZ()<<"\n";
+    //    std::cout<<"Robot position "<<robotTorso.getX()<<" "<<robotTorso.getY()<<" "<<robotTorso.getZ()<<"\n";
+    //std::cout<<"Human position "<<agentTorso.getX()<<" "<<agentTorso.getY()<<" "<<agentTorso.getZ()<<"\n";
     if(agentTorso.getX() != 0.0){
 	    distBodies = MathFunctions::dist2D(agentTorso, robotTorso);
 	    //	 std::cout << "Dist human robot: " << distBodies << std::endl;
